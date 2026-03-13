@@ -1,7 +1,10 @@
 // Second Opinion - Background Service Worker
 // Handles API calls and credit management
 
-const API_BASE_URL = 'http://localhost:3000';
+// API Base URL - change this to your deployed API
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://your-production-domain.com'
+  : 'http://localhost:3000';
 
 // In-memory storage for development (use chrome.storage in production)
 let userCredits = 20; // Free tier default
@@ -77,5 +80,5 @@ chrome.runtime.onInstalled.addListener((details) => {
 // Handle extension icon click
 chrome.action.onClicked.addListener((tab) => {
   // Open dashboard when clicking extension icon
-  chrome.tabs.create({ url: `${API_BASE_URL}/dashboard` });
+  chrome.tabs.create({ url: `${API_BASE_URL}/` });
 });
