@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 const opinionsDb: Array<{
   id: string;
   aiResponse: string;
+  userQuestion: string;
+  chatName: string;
   opinion: {
     summary: string[];
     alternativePerspectives: string;
@@ -15,9 +17,19 @@ const opinionsDb: Array<{
 }> = [];
 
 export async function POST(request: NextRequest) {
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      }
+    });
+  }
+  
   try {
     const body = await request.json();
-    const { aiResponse, platform, url } = body;
+    const { aiResponse, userQuestion, platform, url, chatName } = body;
 
     if (!aiResponse) {
       return NextResponse.json(
@@ -26,11 +38,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const opinion = await generateSecondOpinion(aiResponse);
+    const opinion = await generateSecondOpinion(aiResponse, userQuestion);
 
     const savedOpinion = {
       id: Date.now().toString(),
       aiResponse,
+      userQuestion: userQuestion || '',
+      chatName: chatName || 'Untitled Chat',
       opinion,
       platform,
       createdAt: new Date().toISOString(),
@@ -42,6 +56,10 @@ export async function POST(request: NextRequest) {
       success: true,
       opinion,
       opinionId: savedOpinion.id
+    }, {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+      }
     });
   } catch (error) {
     console.error('Second Opinion error:', error);
@@ -52,7 +70,9 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function generateSecondOpinion(aiResponse: string) {
+async function generateSecondOpinion(aiResponse: string, userQuestion?: string) {
+  const questionContext = userQuestion ? `\n\nThe user originally asked: "${userQuestion}"` : '';
+  
   const systemPrompt = `You are a balanced thinking partner. Your goal is to provide constructive alternative perspectives on AI outputs WITHOUT being negative or creating anxiety.
   
   IMPORTANT TONE GUIDELINES:
@@ -63,11 +83,12 @@ async function generateSecondOpinion(aiResponse: string) {
   - Frame challenges as "here's another way to look at this"
   
   Focus on:
+  - The user's actual question/intent and whether the AI addressed it
   - Alternative angles the AI might have missed
   - Different stakeholder perspectives
   - Potential edge cases
   - Additional context that could be relevant
-  - Questions the AI didn't address
+  - Questions the AI didn't address${questionContext}
   
   Output ONLY valid JSON with this exact structure:
   {
@@ -77,7 +98,7 @@ async function generateSecondOpinion(aiResponse: string) {
     "considerations": "2-3 paragraphs on additional factors to consider"
   }`;
 
-  const userPrompt = `Provide a balanced second opinion on this AI response:\n\n${aiResponse}`;
+  const userPrompt = `Provide a balanced second opinion on this AI response to the user's question:\n\nAI Response:\n${aiResponse}${userQuestion ? '\n\nUser Question: ' + userQuestion : ''}`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -110,7 +131,7 @@ async function generateSecondOpinion(aiResponse: string) {
     console.error('AI API error:', error);
   }
 
-  return generateFallbackOpinion(aiResponse);
+  return generateFallbackOpinion(aiResponse, userQuestion);
 }
 
 function parseStructuredResponse(content: string) {
@@ -126,7 +147,8 @@ function parseStructuredResponse(content: string) {
   return generateFallbackOpinion(content);
 }
 
-function generateFallbackOpinion(aiResponse: string) {
+function generateFallbackOpinion(aiResponse: string, userQuestion?: string) {
+  const q = userQuestion ? ` about "${userQuestion}"` : '';
   return {
     summary: [
       "Consider whether all alternative approaches were explored",
@@ -135,7 +157,7 @@ function generateFallbackOpinion(aiResponse: string) {
       "Think about the long-term implications of this approach",
       "Consider what questions remain unanswered"
     ],
-    alternativePerspectives: `While the response provides useful information, there are several angles worth exploring. Different stakeholders might emphasize different aspects of this topic. For example, someone with technical expertise might focus on implementation details, while a business perspective might prioritize ROI and timeline. Consider what perspective would be most valuable for your specific situation.`,
+    alternativePerspectives: `While the response provides useful information, there are several angles worth exploring${q}. Different stakeholders might emphasize different aspects of this topic. For example, someone with technical expertise might focus on implementation details, while a business perspective might prioritize ROI and timeline. Consider what perspective would be most valuable for your specific situation.`,
     assumptions: `Every response makes assumptions about context that may or may not be accurate. Consider what assumptions might be embedded in this response - about your expertise level, your goals, your constraints, or your industry. These assumptions could shape the advice in ways that may not align with your specific situation.`,
     considerations: `Beyond the immediate response, there are often additional factors worth considering. These might include: resource constraints you face, timeline pressures, stakeholder buy-in requirements, technical dependencies, and potential unintended consequences. Also consider what follow-up questions this response might raise and what additional information would help you make a more informed decision.`
   };

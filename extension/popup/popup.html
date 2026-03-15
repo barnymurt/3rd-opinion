@@ -10,121 +10,325 @@
       padding: 0;
       box-sizing: border-box;
     }
-    body {
-      width: 320px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #f8f9fa;
+
+    :root {
+      --primary: #6366f1;
+      --primary-dark: #4f46e5;
+      --primary-light: #a5b4fc;
+      --secondary: #06b6d4;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface-hover: #f1f5f9;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --text-secondary: #64748b;
+      --text-muted: #94a3b8;
     }
-    .popup-container {
+
+    body {
+      width: 360px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .container {
       padding: 20px;
     }
+
     .header {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 14px;
       margin-bottom: 20px;
     }
+
     .logo {
-      width: 40px;
-      height: 40px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      border-radius: 10px;
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    }
+
+    .logo svg {
+      width: 24px;
+      height: 24px;
       color: white;
     }
+
     .header-text h1 {
       font-size: 18px;
       font-weight: 600;
-      color: #1a1a2e;
+      color: var(--text);
     }
+
     .header-text p {
       font-size: 12px;
-      color: #666;
+      color: var(--text-secondary);
     }
-    .credits-card {
-      background: white;
-      border-radius: 12px;
-      padding: 16px;
+
+    .status-badge {
+      margin-left: auto;
+      padding: 4px 10px;
+      background: #dbeafe;
+      color: #1d4ed8;
+      font-size: 11px;
+      font-weight: 500;
+      border-radius: 20px;
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 14px;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+
+    .credits-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       margin-bottom: 16px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
+
     .credits-label {
-      font-size: 12px;
-      color: #666;
-      margin-bottom: 6px;
+      font-size: 13px;
+      color: var(--text-secondary);
     }
+
     .credits-value {
-      font-size: 28px;
+      font-size: 32px;
       font-weight: 700;
-      color: #1a1a2e;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
+
     .credits-value span {
       font-size: 14px;
       font-weight: 500;
-      color: #666;
+      color: var(--text-muted);
+      -webkit-text-fill-color: var(--text-muted);
     }
-    .upgrade-btn {
+
+    .progress-bar {
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary) 0%, var(--secondary) 100%);
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+
+    .progress-text {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .btn {
       width: 100%;
       padding: 12px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
       border: none;
       border-radius: 10px;
       font-size: 14px;
       font-weight: 600;
       cursor: pointer;
-      transition: transform 0.2s;
+      transition: all 0.2s ease;
     }
-    .upgrade-btn:hover {
-      transform: scale(1.02);
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: white;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
     }
-    .features {
-      margin-top: 20px;
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
     }
-    .features h3 {
-      font-size: 13px;
-      color: #666;
+
+    .btn-secondary {
+      background: var(--surface-hover);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--border);
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
       margin-bottom: 12px;
     }
-    .feature-list {
+
+    .features {
       list-style: none;
     }
-    .feature-list li {
+
+    .features li {
       display: flex;
       align-items: center;
       gap: 10px;
       padding: 8px 0;
       font-size: 13px;
-      color: #444;
+      color: var(--text);
     }
-    .feature-list li svg {
+
+    .features li svg {
       flex-shrink: 0;
-      color: #667eea;
+      color: var(--success);
     }
+
+    .action-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      padding: 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: left;
+    }
+
+    .action-btn:hover {
+      background: var(--surface-hover);
+      border-color: var(--primary-light);
+    }
+
+    .action-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--primary-light);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .action-icon svg {
+      width: 18px;
+      height: 18px;
+      color: var(--primary);
+    }
+
+    .action-text {
+      flex: 1;
+    }
+
+    .action-text strong {
+      display: block;
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    .action-text span {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
     .footer {
-      margin-top: 20px;
-      padding-top: 16px;
-      border-top: 1px solid #eee;
       display: flex;
       justify-content: space-between;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      margin-top: 14px;
     }
+
     .footer a {
       font-size: 12px;
-      color: #667eea;
+      color: var(--text-secondary);
       text-decoration: none;
+      transition: color 0.2s;
     }
+
     .footer a:hover {
-      text-decoration: underline;
+      color: var(--primary);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--border);
+      padding: 4px;
+      border-radius: 10px;
+      margin-bottom: 16px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background: transparent;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab.active {
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 20px;
+    }
+
+    .empty-state svg {
+      width: 48px;
+      height: 48px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .empty-state p {
+      font-size: 13px;
+      color: var(--text-secondary);
     }
   </style>
 </head>
 <body>
-  <div class="popup-container">
+  <div class="container">
     <div class="header">
       <div class="logo">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10"/>
           <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
           <line x1="12" y1="17" x2="12.01" y2="17"/>
@@ -134,48 +338,113 @@
         <h1>Second Opinion</h1>
         <p>Balance AI's tendency to agree</p>
       </div>
+      <span class="status-badge">Active</span>
     </div>
 
-    <div class="credits-card">
-      <div class="credits-label">Free credits remaining</div>
-      <div class="credits-value">20 <span>/ month</span></div>
+    <div class="tabs">
+      <button class="tab active" data-tab="main">Main</button>
+      <button class="tab" data-tab="history">History</button>
+      <button class="tab" data-tab="pro">Pro</button>
     </div>
 
-    <button class="upgrade-btn" id="upgradeBtn">Upgrade to Pro</button>
+    <div id="tab-main" class="tab-content active">
+      <div class="card">
+        <div class="credits-row">
+          <span class="credits-label">Free credits remaining</span>
+        </div>
+        <div class="credits-value">20 <span>/ month</span></div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width: 100%"></div>
+        </div>
+        <p class="progress-text">20 of 20 credits used</p>
+      </div>
 
-    <div class="features">
-      <h3>Pro Features</h3>
-      <ul class="feature-list">
-        <li>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="20 6 9 17 4 12"/>
+      <button class="btn btn-primary" id="getOpinionBtn" style="margin-bottom: 12px;">
+        Get Second Opinion
+      </button>
+
+      <p class="section-title" style="margin-top: 8px;">How It Works</p>
+      <div class="card" style="padding: 14px;">
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+          <div style="width: 24px; height: 24px; background: var(--primary-light); border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <span style="font-size: 12px; font-weight: 600; color: var(--primary);">1</span>
+          </div>
+          <div>
+            <strong style="font-size: 13px;">Chat with AI</strong>
+            <p style="font-size: 12px; color: var(--text-secondary);">Have a conversation for 7+ minutes</p>
+          </div>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: flex-start; margin-top: 12px;">
+          <div style="width: 24px; height: 24px; background: var(--primary-light); border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <span style="font-size: 12px; font-weight: 600; color: var(--primary);">2</span>
+          </div>
+          <div>
+            <strong style="font-size: 13px;">Get Prompted</strong>
+            <p style="font-size: 12px; color: var(--text-secondary);">We'll offer a balanced perspective</p>
+          </div>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: flex-start; margin-top: 12px;">
+          <div style="width: 24px; height: 24px; background: var(--primary-light); border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <span style="font-size: 12px; font-weight: 600; color: var(--primary);">3</span>
+          </div>
+          <div>
+            <strong style="font-size: 13px;">View Alternative</strong>
+            <p style="font-size: 12px; color: var(--text-secondary);">See bullet points + detailed analysis</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-history" class="tab-content">
+      <div id="history-list" class="card" style="padding: 0; max-height: 400px; overflow-y: auto;">
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
-          100 opinions/month
-        </li>
-        <li>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="20 6 9 17 4 12"/>
-          </svg>
-          Multiple AI perspectives
-        </li>
-        <li>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="20 6 9 17 4 12"/>
-          </svg>
-          Text-to-speech
-        </li>
-        <li>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="20 6 9 17 4 12"/>
-          </svg>
-          History & saved opinions
-        </li>
-      </ul>
+          <p>No opinions yet</p>
+          <p style="font-size: 11px; margin-top: 4px;">Your second opinions will appear here</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-pro" class="tab-content">
+      <div class="card" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); border: none;">
+        <h3 style="color: white; font-size: 18px; margin-bottom: 8px;">Upgrade to Pro</h3>
+        <p style="color: rgba(255,255,255,0.8); font-size: 13px; margin-bottom: 16px;">Unlock unlimited opinions and advanced features</p>
+        <ul style="list-style: none; margin-bottom: 16px;">
+          <li style="display: flex; align-items: center; gap: 8px; color: white; font-size: 13px; padding: 4px 0;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            100 opinions/month
+          </li>
+          <li style="display: flex; align-items: center; gap: 8px; color: white; font-size: 13px; padding: 4px 0;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            Multiple AI perspectives
+          </li>
+          <li style="display: flex; align-items: center; gap: 8px; color: white; font-size: 13px; padding: 4px 0;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            Text-to-speech
+          </li>
+          <li style="display: flex; align-items: center; gap: 8px; color: white; font-size: 13px; padding: 4px 0;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            History & saves
+          </li>
+        </ul>
+        <button class="btn" style="background: white; color: #6366f1;">Upgrade for $9/mo</button>
+      </div>
     </div>
 
     <div class="footer">
       <a href="#" id="dashboardLink">Dashboard</a>
       <a href="#">Settings</a>
+      <a href="#">Help</a>
     </div>
   </div>
 

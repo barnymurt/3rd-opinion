@@ -36,7 +36,13 @@
   // Get message container selector for current platform
   function getMessageSelector() {
     const platform = detectPlatform();
-    return CONFIG.MESSAGE_CONTAINER_SELECTORS[window.location.hostname] || null;
+    const hostname = window.location.hostname;
+    
+    if (hostname.includes('chat.openai.com')) return '[data-message-author-role="assistant"]';
+    if (hostname.includes('claude.ai')) return '[class*="message"], [class*="ConversationItem"], [data-testid*="message"]';
+    if (hostname.includes('gemini.google.com')) return '[class*="response"]';
+    if (hostname.includes('perplexity.ai')) return '[class*="answer-item"]';
+    return null;
   }
 
   // Count messages in the chat
@@ -46,41 +52,121 @@
     return document.querySelectorAll(selector).length;
   }
 
-  // Extract latest AI response text
+  // Extract user's question that prompted the AI response
+  function extractUserQuestion() {
+    const platform = detectPlatform();
+    
+    const selectors = {
+      'chatgpt': [
+        '[data-message-author-role="user"]',
+        '[class*="user-message"]'
+      ],
+      'claude': [
+        '[class*="user"]',
+        '[class*="prompt"]'
+      ],
+      'gemini': [
+        '[class*="user-input"]',
+        '[class*="query"]'
+      ],
+      'perplexity': [
+        '[class*="user-query"]'
+      ]
+    };
+    
+    const platformSelectors = selectors[platform] || [];
+    let lastUserMessage = '';
+    
+    for (const selector of platformSelectors) {
+      try {
+        const elements = document.querySelectorAll(selector);
+        for (let i = elements.length - 1; i >= 0; i--) {
+          const text = (elements[i].innerText || elements[i].textContent || '').trim();
+          if (text.length > 10) {
+            lastUserMessage = text;
+            break;
+          }
+        }
+        if (lastUserMessage) break;
+      } catch (e) {}
+    }
+    
+    return lastUserMessage;
+  }
   function extractLatestAIResponse() {
     const platform = detectPlatform();
-    let responseElement = null;
-
-    switch (platform) {
-      case 'chatgpt':
-        responseElement = document.querySelector('[data-message-author-role="assistant"]:last-child');
-        if (responseElement) {
-          return responseElement.innerText || responseElement.textContent || '';
+    console.log('=== EXTRACTING FOR PLATFORM:', platform, '===');
+    console.log('URL:', window.location.href);
+    
+    // Get body text length as a quick check
+    const bodyText = document.body.innerText;
+    console.log('Body text length:', bodyText.length);
+    
+    // Try multiple selectors for each platform
+    const selectors = {
+      'chatgpt': [
+        '[data-message-author-role="assistant"]',
+        '[class*="message"]',
+        '.markdown'
+      ],
+      'claude': [
+        '[class*="message"]',
+        '[class*="assistant"]', 
+        '[data-testid*="message"]',
+        '.prose',
+        '.claude-message'
+      ],
+      'gemini': [
+        '[class*="response"]',
+        '[class*="output"]'
+      ],
+      'perplexity': [
+        '[class*="answer"]',
+        '[class*="result"]'
+      ]
+    };
+    
+    const platformSelectors = selectors[platform] || selectors['claude']; // default to claude selectors
+    let longestText = '';
+    
+    // Try each selector
+    for (const selector of platformSelectors) {
+      try {
+        const elements = document.querySelectorAll(selector);
+        console.log('Selector:', selector, 'found:', elements.length);
+        for (const el of elements) {
+          const text = (el.innerText || el.textContent || '').trim();
+          if (text.length > longestText.length) {
+            longestText = text;
+            console.log('New longest:', text.length, 'chars');
+          }
         }
-        break;
-      case 'claude':
-        const claudeMessages = document.querySelectorAll('[class*="message"][class*="assistant"]');
-        if (claudeMessages.length > 0) {
-          responseElement = claudeMessages[claudeMessages.length - 1];
-          return responseElement.innerText || responseElement.textContent || '';
-        }
-        break;
-      case 'gemini':
-        const geminiResponses = document.querySelectorAll('[class*="response"]');
-        if (geminiResponses.length > 0) {
-          responseElement = geminiResponses[geminiResponses.length - 1];
-          return responseElement.innerText || responseElement.textContent || '';
-        }
-        break;
-      case 'perplexity':
-        const perplexityAnswers = document.querySelectorAll('[class*="answer-item"]');
-        if (perplexityAnswers.length > 0) {
-          responseElement = perplexityAnswers[perplexityAnswers.length - 1];
-          return responseElement.innerText || responseElement.textContent || '';
-        }
-        break;
+      } catch (e) {
+        console.log('Selector error:', selector, e.message);
+      }
     }
-    return '';
+    
+    // Fallback: find any large text block
+    if (longestText.length < 50) {
+      console.log('Trying fallback...');
+      const allElements = document.querySelectorAll('div, p, span, article');
+      for (const el of allElements) {
+        const text = (el.innerText || '').trim();
+        // Skip inputs, buttons, and very short text
+        if (text.length > 100 && text.length < 50000 && 
+            !el.matches('input, textarea, button') &&
+            !el.closest('form')) {
+          if (text.length > longestText.length) {
+            longestText = text;
+            console.log('Fallback found:', text.length, 'chars');
+          }
+        }
+      }
+    }
+    
+    console.log('FINAL text length:', longestText.length);
+    console.log('Preview:', longestText.substring(0, 200));
+    return longestText;
   }
 
   // Create and show the prompt banner
@@ -477,7 +563,14 @@
   // Initialize the content script
   function init() {
     const platform = detectPlatform();
-    if (!platform) return;
+    console.log('=== CONTENT SCRIPT LOADED ===');
+    console.log('Platform:', platform);
+    console.log('URL:', window.location.href);
+    
+    if (!platform) {
+      console.log('Not an AI chat platform, exiting');
+      return;
+    }
 
     currentPlatform = platform;
     sessionStartTime = Date.now();
@@ -497,14 +590,89 @@
 
     // Check trigger conditions periodically
     setInterval(checkTriggerConditions, 10000);
-
-    // Listen for messages from background script
-    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      if (message.type === 'SHOW_OPINION') {
-        showOpinionPanel(message.opinion);
-      }
-    });
   }
+
+  // Generate a short name from the AI response
+  function generateChatName(aiResponse) {
+    if (!aiResponse || aiResponse.length < 20) return 'Untitled Chat';
+    
+    // Try to extract first meaningful sentence or phrase
+    const firstLine = aiResponse.split('\n').find(line => line.trim().length > 10) || aiResponse;
+    const words = firstLine.trim().split(/\s+/).slice(0, 6);
+    let name = words.join(' ');
+    
+    // Clean up the name
+    name = name.replace(/^[A-Z][a-z]+\s[a-z]+\s[a-z]+\s*/, ''); // Remove common prefixes
+    name = name.replace(/[^\w\s]$/, ''); // Remove trailing punctuation
+    
+    if (name.length > 40) {
+      name = name.substring(0, 37) + '...';
+    }
+    
+    return name || 'Chat ' + new Date().toLocaleDateString();
+  }
+
+  // Listen for messages from popup and background script
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    console.log('Content script received message:', message);
+    
+    if (message.type === 'SHOW_OPINION') {
+      showOpinionPanel(message.opinion);
+    }
+    
+    if (message.action === 'getAIResponse' || message.action === 'getFullPageText') {
+      console.log('=== GOT MESSAGE:', message.action, '===');
+      
+      // For getFullPageText, just return body text
+      if (message.action === 'getFullPageText') {
+        sendResponse({ text: document.body.innerText });
+        return true;
+      }
+      
+      // Return AI response and user question to popup
+      const aiResponse = extractLatestAIResponse();
+      const userQuestion = extractUserQuestion();
+      const chatName = generateChatName(aiResponse);
+      console.log('User question:', userQuestion);
+      console.log('AI response length:', aiResponse.length);
+      sendResponse({
+        aiResponse: aiResponse,
+        userQuestion: userQuestion,
+        platform: detectPlatform(),
+        chatName: chatName
+      });
+      return true;
+    }
+    
+    if (message.action === 'triggerSecondOpinion' || message.action === 'getSecondOpinion') {
+      const aiResponse = extractLatestAIResponse();
+      console.log('Extracted AI response:', aiResponse ? aiResponse.substring(0, 100) + '...' : 'EMPTY');
+      const chatName = generateChatName(aiResponse);
+      console.log('Generated chat name:', chatName);
+      console.log('Platform:', detectPlatform());
+      if (!aiResponse || aiResponse.length < 50) {
+        alert('Could not detect AI response. Make sure Claude has sent a message at least 50 characters long.');
+        return;
+      }
+      chrome.runtime.sendMessage({
+        type: 'GET_SECOND_OPINION',
+        data: {
+          aiResponse: aiResponse,
+          platform: detectPlatform(),
+          url: window.location.href,
+          chatName: chatName
+        }
+      }, (response) => {
+        if (response && response.success) {
+          showOpinionPanel(response.opinion);
+        } else if (response?.error) {
+          alert('Error: ' + response.error);
+        } else {
+          alert('Failed to get second opinion. Please try again.');
+        }
+      });
+    }
+  });
 
   // Start
   if (document.readyState === 'loading') {

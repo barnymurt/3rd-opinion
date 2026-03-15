@@ -4,7 +4,7 @@
 // API Base URL - change this to your deployed API
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
   ? 'https://your-production-domain.com'
-  : 'http://localhost:3000';
+  : 'http://localhost:3002';
 
 // In-memory storage for development (use chrome.storage in production)
 let userCredits = 20; // Free tier default
@@ -20,7 +20,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 async function handleGetOpinion(data) {
-  const { aiResponse, platform, url } = data;
+  const { aiResponse, platform, url, chatName } = data;
 
   // Check credits
   if (userCredits <= 0) {
@@ -41,7 +41,8 @@ async function handleGetOpinion(data) {
       body: JSON.stringify({
         aiResponse,
         platform,
-        url
+        url,
+        chatName
       })
     });
 
