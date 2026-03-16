@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Second Opinion",
+  "name": "Third Opinion",
   "version": "1.0.0",
-  "description": "Balance AI's tendency to agree with you - get alternative perspectives on AI chat outputs",
+  "description": "Get alternative perspectives on AI chat outputs - challenge confirmation bias",
   "permissions": [
     "activeTab",
     "storage",
@@ -14,7 +14,7 @@
     "*://claude.ai/*",
     "*://gemini.google.com/*",
     "*://www.perplexity.ai/*",
-    "http://localhost:3002/*"
+    "http://localhost:*/*"
   ],
   "background": {
     "service_worker": "background.js"

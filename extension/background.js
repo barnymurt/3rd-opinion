@@ -4,18 +4,36 @@
 // API Base URL - change this to your deployed API
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
   ? 'https://your-production-domain.com'
-  : 'http://localhost:3002';
+  : 'http://localhost:3000';
 
-// In-memory storage for development (use chrome.storage in production)
-let userCredits = 20; // Free tier default
-
-// Listen for messages from content script
+// Listen for messages from popup or content script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'GET_SECOND_OPINION') {
     handleGetOpinion(message.data)
       .then(response => sendResponse(response))
       .catch(error => sendResponse({ success: false, error: error.message }));
-    return true; // Keep channel open for async response
+    return true;
+  }
+  
+  if (message.type === 'CALL_API') {
+    // Popup calling API via background to avoid CORS
+    fetch(API_BASE_URL + '/api/second-opinion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(message.data)
+    })
+    .then(res => res.json())
+    .then(data => sendResponse(data))
+    .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+  
+  if (message.type === 'GET_HISTORY') {
+    fetch(API_BASE_URL + '/api/second-opinion')
+      .then(res => res.json())
+      .then(data => sendResponse(data))
+      .catch(err => sendResponse({ opinions: [], error: err.message }));
+    return true;
   }
 });
 

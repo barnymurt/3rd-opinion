@@ -17,14 +17,14 @@ const opinionsDb: Array<{
 }> = [];
 
 export async function POST(request: NextRequest) {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  };
+  
   if (request.method === 'OPTIONS') {
-    return new NextResponse(null, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      }
-    });
+    return new NextResponse(null, { headers: corsHeaders });
   }
   
   try {
@@ -71,34 +71,27 @@ export async function POST(request: NextRequest) {
 }
 
 async function generateSecondOpinion(aiResponse: string, userQuestion?: string) {
-  const questionContext = userQuestion ? `\n\nThe user originally asked: "${userQuestion}"` : '';
+  const questionContext = userQuestion ? `\n\nThe user's original question was: "${userQuestion}"` : '';
   
-  const systemPrompt = `You are a balanced thinking partner. Your goal is to provide constructive alternative perspectives on AI outputs WITHOUT being negative or creating anxiety.
+  const systemPrompt = `You are a critical thinking partner. Your job is to provide genuinely DIFFERENT perspectives on AI responses that challenge groupthink and confirmation bias.
   
-  IMPORTANT TONE GUIDELINES:
-  - Be constructive, not confrontational
-  - Offer perspectives that help the user think more broadly
-  - Avoid words like "wrong", "mistake", "error", "fear", "worry", "danger"
-  - Use phrases like "consider", "also think about", "another angle", "alternative perspective"
-  - Frame challenges as "here's another way to look at this"
-  
-  Focus on:
-  - The user's actual question/intent and whether the AI addressed it
-  - Alternative angles the AI might have missed
-  - Different stakeholder perspectives
-  - Potential edge cases
-  - Additional context that could be relevant
-  - Questions the AI didn't address${questionContext}
+  CRITICAL REQUIREMENTS:
+  - Focus specifically on the CONTENT of the AI response
+  - Identify specific claims, recommendations, or conclusions in the AI response
+  - Provide alternative viewpoints that are RELEVANT to those specific points
+  - Don't give generic advice - make it specific to what was actually said
   
   Output ONLY valid JSON with this exact structure:
   {
-    "summary": ["point 1", "point 2", "point 3", "point 4", "point 5"],
-    "alternativePerspectives": "2-3 paragraphs exploring different angles",
-    "assumptions": "2-3 paragraphs on what assumptions might be being made",
-    "considerations": "2-3 paragraphs on additional factors to consider"
+    "summary": ["A specific alternative view on point 1", "A different angle on point 2", "A counter-perspective on point 3", "A relevant consideration the AI missed", "A question that challenges the AI's conclusion"],
+    "alternativePerspectives": "2-3 paragraphs specifically addressing what the AI claimed",
+    "assumptions": "2-3 paragraphs on specific assumptions the AI made",
+    "considerations": "2-3 paragraphs on additional factors specific to this situation"
   }`;
 
-  const userPrompt = `Provide a balanced second opinion on this AI response to the user's question:\n\nAI Response:\n${aiResponse}${userQuestion ? '\n\nUser Question: ' + userQuestion : ''}`;
+  const userPrompt = `Analyze this AI response and provide a different perspective.
+
+AI Response: ${aiResponse.substring(0, 3000)}${userQuestion ? '\n\nUser Question: ' + userQuestion : ''}`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -167,5 +160,9 @@ export async function GET() {
   return NextResponse.json({
     opinions: opinionsDb.reverse().slice(0, 50),
     total: opinionsDb.length
+  }, {
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+    }
   });
 }

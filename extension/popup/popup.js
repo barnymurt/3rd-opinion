@@ -1,34 +1,95 @@
 // Popup script for Second Opinion extension
 
-const API_BASE = 'http://localhost:3002';
+// Global function for footer links
+window.switchTab = function(tabName) {
+  // Hide all tab content
+  document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+  document.querySelectorAll('.tab-content.tab-content').forEach(c => c.classList.remove('active'));
+  
+  // Show selected tab
+  const tabContent = document.getElementById('tab-' + tabName);
+  if (tabContent) {
+    tabContent.style.display = 'block';
+    tabContent.classList.add('active');
+  }
+  
+  // Update tab buttons
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const tabBtn = document.querySelector('[data-tab="' + tabName + '"]');
+  if (tabBtn) {
+    tabBtn.classList.add('active');
+  }
+};
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Load saved settings
+  loadSettings();
+  
   // Tab switching
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
       tab.classList.add('active');
-      document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+      document.getElementById('tab-' + tab.dataset.tab).style.display = 'block';
     });
   });
   
-  chrome.storage.local.get(['credits', 'tier'], (result) => {
-    const credits = result.credits || 20;
+  // Save API keys button
+  document.getElementById('saveApiKeys')?.addEventListener('click', () => {
+    const apiKeys = {
+      anthropic: document.getElementById('api-anthropic')?.value || '',
+      openai: document.getElementById('api-openai')?.value || '',
+      google: document.getElementById('api-google')?.value || ''
+    };
+    chrome.storage.local.set({ apiKeys: apiKeys }, () => {
+      alert('API keys saved!');
+    });
+  });
+  
+  // Preferences checkboxes
+  document.getElementById('pref-auto-prompt')?.addEventListener('change', (e) => {
+    chrome.storage.local.set({ prefAutoPrompt: e.target.checked });
+  });
+  document.getElementById('pref-tts')?.addEventListener('change', (e) => {
+    chrome.storage.local.set({ prefTTS: e.target.checked });
+  });
+  document.getElementById('pref-sound')?.addEventListener('change', (e) => {
+    chrome.storage.local.set({ prefSound: e.target.checked });
+  });
+  
+  loadHistory();
+  loadDashboard();
+
+  chrome.storage.local.get(['creditsUsed', 'creditsResetDate', 'tier'], (result) => {
+    const today = new Date().toDateString();
+    let creditsUsed = result.creditsUsed || 0;
+    let lastReset = result.creditsResetDate || today;
+    
+    // Reset credits if new month
+    if (lastReset !== today) {
+      const lastResetDate = new Date(lastReset);
+      const todayDate = new Date(today);
+      if (lastResetDate.getMonth() !== todayDate.getMonth()) {
+        creditsUsed = 0;
+        chrome.storage.local.set({ creditsUsed: 0, creditsResetDate: today });
+      }
+    }
+    
+    const creditsRemaining = Math.max(0, 20 - creditsUsed);
     const tier = result.tier || 'free';
     
     const creditsValue = document.querySelector('.credits-value');
     if (creditsValue) {
-      creditsValue.innerHTML = `${credits} <span>/ month</span>`;
+      creditsValue.innerHTML = `${creditsRemaining} <span>/ month</span>`;
     }
 
     const progressFill = document.querySelector('.progress-fill');
     const progressText = document.querySelector('.progress-text');
     if (progressFill && progressText) {
-      const used = 20 - credits;
-      const percentage = (credits / 20) * 100;
+      const percentage = (creditsRemaining / 20) * 100;
       progressFill.style.width = `${percentage}%`;
-      progressText.textContent = `${credits} of 20 credits used`;
+      progressText.textContent = `${creditsRemaining} of 20 credits remaining`;
     }
 
     const statusBadge = document.querySelector('.status-badge');
@@ -47,51 +108,70 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   loadHistory();
+  loadDashboard();
 
   document.getElementById('upgradeBtn')?.addEventListener('click', () => {
-    chrome.tabs.create({ url: 'http://localhost:3002/second-opinion' });
+    alert('Stripe integration coming soon! Sign up for updates.');
   });
 
   document.getElementById('dashboardLink')?.addEventListener('click', (e) => {
     e.preventDefault();
-    chrome.tabs.create({ url: 'http://localhost:3002/second-opinion' });
+    // Switch to dashboard tab instead
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelector('[data-tab="dashboard"]').classList.add('active');
+    document.getElementById('tab-dashboard').classList.add('active');
   });
 
   document.getElementById('getOpinionBtn')?.addEventListener('click', () => {
     const btn = document.getElementById('getOpinionBtn');
     btn.textContent = 'Loading...';
     btn.disabled = true;
+    let errorShown = false;
     
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (!tabs[0]) {
-        alert('No active tab');
-        btn.textContent = 'Get Second Opinion';
+        alert('No active tab found');
+        btn.textContent = 'Get Third Opinion';
         btn.disabled = false;
         return;
       }
       
-      console.log('Tab URL:', tabs[0].url);
+      const url = tabs[0].url;
+      console.log('Tab URL:', url);
+      
+      // Check if on supported platform
+      const urlLower = url.toLowerCase();
+      const supported = urlLower.includes('claude.ai') || 
+                       urlLower.includes('chatgpt.com') || 
+                       urlLower.includes('chat.openai.com') || 
+                       urlLower.includes('gemini.google.com') || 
+                       urlLower.includes('perplexity.ai') ||
+                       urlLower.includes('ai.google') ||
+                       urlLower.includes('you.com');
+      if (!supported) {
+        alert('Please open an AI chat page (Claude, ChatGPT, Gemini, or Perplexity) to get a second opinion.\n\nCurrent URL: ' + url);
+        btn.textContent = 'Get Third Opinion';
+        btn.disabled = false;
+        return;
+      }
       
       // Try messaging the content script first
       chrome.tabs.sendMessage(tabs[0].id, { action: 'getFullPageText' }, (response) => {
-        console.log('Content script response:', response);
-        
         if (chrome.runtime.lastError) {
-          console.log('Runtime error, trying executeScript:', chrome.runtime.lastError.message);
-          
-          // Fallback: use executeScript
+          console.log('Content script error:', chrome.runtime.lastError.message);
+          // Try to reload the content script
           chrome.scripting.executeScript({
             target: { tabId: tabs[0].id },
             func: () => document.body.innerText
           }, (results) => {
-            console.log('executeScript results:', results);
-            handlePageText(results?.[0]?.result || '', tabs[0].url, btn);
+            handlePageText(results?.[0]?.result || '', url, btn);
           });
         } else if (response && response.text) {
-          handlePageText(response.text, tabs[0].url, btn);
+          handlePageText(response.text, url, btn);
         } else {
-          alert('Could not get page content. Make sure you are on an AI chat page with content.');
-          btn.textContent = 'Get Second Opinion';
+          alert('Could not read the chat page. Try refreshing the page and clicking again.');
+          btn.textContent = 'Get Third Opinion';
           btn.disabled = false;
         }
       });
@@ -101,35 +181,60 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log('Page text length:', text.length);
       
       if (!text || text.length < 100) {
-        alert('Page appears empty. Try refreshing the chat page.');
-        btn.textContent = 'Get Second Opinion';
+        alert('The chat page appears empty. Start a conversation with AI first.');
+        btn.textContent = 'Get Third Opinion';
         btn.disabled = false;
         return;
       }
       
-      fetch(API_BASE + '/api/second-opinion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          aiResponse: text.substring(0, 8000),
-          platform: url.includes('claude') ? 'clude' : url.includes('chat.openai') ? 'chatgpt' : 'other',
-          url: url,
-          chatName: text.substring(0, 40) + '...'
-        })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          showResultInPopup(data.opinion, data.opinion?.summary?.[0] || 'Second Opinion');
-        } else {
-          alert('Error: ' + (data.error || 'Failed'));
-        }
-        btn.textContent = 'Get Second Opinion';
+      btn.textContent = 'Analyzing...';
+      
+      const urlLower = url.toLowerCase();
+      const requestData = {
+        aiResponse: text.substring(0, 8000),
+        platform: urlLower.includes('claude') ? 'claude' : urlLower.includes('chat') ? 'chatgpt' : urlLower.includes('gemini') ? 'gemini' : urlLower.includes('perplexity') ? 'perplexity' : 'other',
+        url: url,
+        chatName: text.substring(0, 40) + '...'
+      };
+      
+      // ALWAYS reset button after 30 seconds (safety timeout)
+      const safetyTimeout = setTimeout(() => {
+        console.log('Safety timeout reached, resetting button');
+        btn.textContent = 'Get Third Opinion';
         btn.disabled = false;
-      })
-      .catch(err => {
-        alert('Error: ' + err.message);
-        btn.textContent = 'Get Second Opinion';
+        alert('Request timed out. Please try again.');
+      }, 30000);
+      
+      // Try content script to make API call (most reliable)
+      chrome.tabs.sendMessage(tabs[0].id, { type: 'CALL_API', data: requestData }, (response) => {
+        clearTimeout(safetyTimeout);
+        
+        if (response && response.success) {
+          showResultInPopup(response.opinion, response.opinion?.summary?.[0] || 'Third Opinion');
+          
+          // Update credits and stats
+          chrome.storage.local.get(['creditsUsed', 'stats', 'platform'], (result) => {
+            const newCreditsUsed = (result.creditsUsed || 0) + 1;
+            const stats = result.stats || { total: 0, platformCounts: {}, lastActivity: null };
+            
+            const platform = requestData.platform;
+            stats.platformCounts[platform] = (stats.platformCounts[platform] || 0) + 1;
+            stats.total = (stats.total || 0) + 1;
+            stats.lastActivity = Date.now();
+            
+            chrome.storage.local.set({ 
+              creditsUsed: newCreditsUsed,
+              creditsResetDate: new Date().toDateString(),
+              stats: stats
+            });
+            
+            loadDashboard();
+          });
+        } else {
+          alert('Error: ' + (response?.error || 'Failed to get third opinion'));
+        }
+        
+        btn.textContent = 'Get Third Opinion';
         btn.disabled = false;
       });
     }
@@ -161,28 +266,115 @@ function showResultInPopup(opinion, chatName) {
   `;
 }
 
+function loadSettings() {
+  chrome.storage.local.get(['apiKeys', 'prefAutoPrompt', 'prefTTS', 'prefSound'], (result) => {
+    if (result.apiKeys) {
+      if (document.getElementById('api-anthropic')) document.getElementById('api-anthropic').value = result.apiKeys.anthropic || '';
+      if (document.getElementById('api-openai')) document.getElementById('api-openai').value = result.apiKeys.openai || '';
+      if (document.getElementById('api-google')) document.getElementById('api-google').value = result.apiKeys.google || '';
+    }
+    if (document.getElementById('pref-auto-prompt')) document.getElementById('pref-auto-prompt').checked = result.prefAutoPrompt !== false;
+    if (document.getElementById('pref-tts')) document.getElementById('pref-tts').checked = result.prefTTS !== false;
+    if (document.getElementById('pref-sound')) document.getElementById('pref-sound').checked = result.prefSound === true;
+  });
+}
+
+function loadDashboard() {
+  chrome.storage.local.get(['creditsUsed', 'creditsResetDate', 'tier', 'stats'], (result) => {
+    const creditsUsed = result.creditsUsed || 0;
+    const creditsRemaining = Math.max(0, 20 - creditsUsed);
+    const tier = result.tier || 'free';
+    const stats = result.stats || { total: 0, platformCounts: {}, lastActivity: null };
+    
+    // Update credit progress
+    const progressFill = document.getElementById('dashboard-progress');
+    const creditsText = document.getElementById('dashboard-credits');
+    if (progressFill && creditsText) {
+      const percentage = (creditsRemaining / 20) * 100;
+      progressFill.style.width = percentage + '%';
+      creditsText.textContent = creditsRemaining + ' of 20 credits remaining';
+    }
+    
+    // Update stats
+    const statTotal = document.getElementById('stat-total');
+    const statWeek = document.getElementById('stat-week');
+    const statPlan = document.getElementById('stat-plan');
+    const statStreak = document.getElementById('stat-streak');
+    
+    if (statTotal) statTotal.textContent = stats.total || 0;
+    if (statWeek) statWeek.textContent = Math.ceil((stats.total || 0) / 7) || 0;
+    if (statPlan) statPlan.textContent = tier === 'pro' ? 'Pro' : 'Free';
+    if (statStreak) statStreak.textContent = stats.streak || 0;
+    
+    // Update platform breakdown
+    const platformBreakdown = document.getElementById('platform-breakdown');
+    if (platformBreakdown) {
+      const counts = stats.platformCounts || {};
+      platformBreakdown.innerHTML = `
+        <span style="padding: 4px 12px; background: #e0e7ff; color: #6366f1; border-radius: 20px; font-size: 12px;">ChatGPT: ${counts.chatgpt || 0}</span>
+        <span style="padding: 4px 12px; background: #fef3c7; color: #d97706; border-radius: 20px; font-size: 12px;">Claude: ${counts.claude || 0}</span>
+        <span style="padding: 4px 12px; background: #d1fae5; color: #059669; border-radius: 20px; font-size: 12px;">Gemini: ${counts.gemini || 0}</span>
+      `;
+    }
+    
+    // Update last activity
+    const lastActivity = document.getElementById('last-activity');
+    if (lastActivity) {
+      if (stats.lastActivity) {
+        const days = Math.floor((Date.now() - stats.lastActivity) / (1000 * 60 * 60 * 24));
+        lastActivity.textContent = days === 0 ? 'Last opinion: Today' : 'Last opinion: ' + days + ' days ago';
+      } else {
+        lastActivity.textContent = 'Last opinion: Never';
+      }
+    }
+  });
+}
+
 function loadHistory() {
-  fetch(API_BASE + '/api/second-opinion')
-    .then(res => res.json())
-    .then(data => {
+  chrome.runtime.sendMessage({ type: 'GET_HISTORY' }, (response) => {
+    if (response && response.opinions && response.opinions.length > 0) {
       const historyList = document.getElementById('history-list');
       if (!historyList) return;
       
-      if (data.opinions && data.opinions.length > 0) {
-        historyList.innerHTML = data.opinions.slice(0, 10).map(opinion => `
-          <div style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'" onclick="viewOpinion('${opinion.id}')">
-            <p style="font-size: 14px; font-weight: 600; color: #0f172a; margin: 0 0 4px;">${opinion.chatName || 'Untitled Chat'}</p>
-            <p style="font-size: 12px; color: #64748b; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${opinion.aiResponse.substring(0, 50)}...</p>
-            <p style="font-size: 11px; color: #94a3b8; margin: 4px 0 0;">${new Date(opinion.createdAt).toLocaleDateString()} · ${opinion.platform}</p>
+      historyList.innerHTML = response.opinions.slice(0, 10).map((opinion, index) => `
+          <div style="border-bottom: 1px solid #e2e8f0;">
+            <div style="padding: 14px 18px; cursor: pointer;" onclick="toggleHistoryItem(${index})">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="flex:1;">
+                  <p style="font-size: 14px; font-weight: 600; color: #0f172a; margin: 0;">${opinion.chatName || 'Untitled Chat'}</p>
+                  <p style="font-size: 12px; color: #64748b; margin: 4px 0 0;">${new Date(opinion.createdAt).toLocaleDateString()} · ${opinion.platform}</p>
+                </div>
+                <span id="history-arrow-${index}" style="color:#94a3b8; font-size:18px;">+</span>
+              </div>
+            </div>
+            <div id="history-detail-${index}" style="display:none; padding: 0 18px 14px; background:#f8fafc;">
+              <p style="font-size:13px; color:#64748b; margin-bottom:8px;"><strong>AI Response:</strong> ${(opinion.aiResponse || '').substring(0, 150)}...</p>
+              <p style="font-size:13px; color:#0f172a; margin-bottom:8px;"><strong>Summary:</strong></p>
+              <ul style="font-size:12px; color:#64748b; padding-left:16px; margin:0 0 8px;">
+                ${(opinion.opinion?.summary || []).map(s => `<li>${s}</li>`).join('')}
+              </ul>
+              <button onclick="viewOpinion('${opinion.id}')" style="padding:8px 16px; background:#6366f1; color:white; border:none; border-radius:6px; font-size:12px; cursor:pointer;">View Full Opinion</button>
+            </div>
           </div>
         `).join('');
-      }
-    })
-    .catch(err => console.error('Failed to load history:', err));
+    }
+  });
 }
 
+window.toggleHistoryItem = function(index) {
+  const detail = document.getElementById('history-detail-' + index);
+  const arrow = document.getElementById('history-arrow-' + index);
+  if (detail.style.display === 'none') {
+    detail.style.display = 'block';
+    arrow.textContent = '-';
+  } else {
+    detail.style.display = 'none';
+    arrow.textContent = '+';
+  }
+};
+
 function viewOpinion(id) {
-  fetch('http://localhost:3002/api/second-opinion')
+  fetch('http://localhost:3000/api/second-opinion')
     .then(res => res.json())
     .then(data => {
       const opinion = data.opinions?.find(o => o.id === id);

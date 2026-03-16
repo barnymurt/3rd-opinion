@@ -616,6 +616,29 @@
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('Content script received message:', message);
     
+    if (message.type === 'CALL_API') {
+      // Content script makes API call (can bypass CORS)
+      console.log('Making API call from content script...');
+      fetch('http://localhost:3000/api/second-opinion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(message.data)
+      })
+      .then(res => {
+        console.log('API response status:', res.status);
+        return res.json();
+      })
+      .then(data => {
+        console.log('API response:', data);
+        sendResponse(data);
+      })
+      .catch(err => {
+        console.error('API error:', err);
+        sendResponse({ success: false, error: err.message });
+      });
+      return true;
+    }
+    
     if (message.type === 'SHOW_OPINION') {
       showOpinionPanel(message.opinion);
     }

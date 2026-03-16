@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Second Opinion</title>
+  <title>Third Opinion</title>
   <style>
     * {
       margin: 0;
@@ -335,7 +335,7 @@
         </svg>
       </div>
       <div class="header-text">
-        <h1>Second Opinion</h1>
+        <h1>Third Opinion</h1>
         <p>Balance AI's tendency to agree</p>
       </div>
       <span class="status-badge">Active</span>
@@ -343,11 +343,14 @@
 
     <div class="tabs">
       <button class="tab active" data-tab="main">Main</button>
+      <button class="tab" data-tab="dashboard">Dashboard</button>
       <button class="tab" data-tab="history">History</button>
       <button class="tab" data-tab="pro">Pro</button>
+      <button class="tab" data-tab="settings">Settings</button>
+      <button class="tab" data-tab="help">Help</button>
     </div>
 
-    <div id="tab-main" class="tab-content active">
+    <div id="tab-main" class="tab-content active" style="display: block;">
       <div class="card">
         <div class="credits-row">
           <span class="credits-label">Free credits remaining</span>
@@ -360,7 +363,7 @@
       </div>
 
       <button class="btn btn-primary" id="getOpinionBtn" style="margin-bottom: 12px;">
-        Get Second Opinion
+        Get Third Opinion
       </button>
 
       <p class="section-title" style="margin-top: 8px;">How It Works</p>
@@ -395,6 +398,53 @@
       </div>
     </div>
 
+    <!-- Dashboard Tab -->
+    <div id="tab-dashboard" class="tab-content">
+      <!-- Credit Usage Visual -->
+      <div class="card">
+        <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">This Month</h4>
+        <div class="progress-bar" style="height: 12px; background: #e2e8f0; border-radius: 6px;">
+          <div class="progress-fill" id="dashboard-progress" style="width: 100%; background: linear-gradient(90deg, #6366f1, #06b6d4); border-radius: 6px;"></div>
+        </div>
+        <p id="dashboard-credits" style="font-size: 13px; color: #64748b; margin-top: 8px;">20 of 20 credits remaining</p>
+      </div>
+
+      <!-- Stats Grid -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+        <div class="card" style="text-align: center; padding: 14px;">
+          <p id="stat-total" style="font-size: 24px; font-weight: 700; color: #6366f1; margin: 0;">0</p>
+          <p style="font-size: 12px; color: #64748b; margin: 4px 0 0;">Total Opinions</p>
+        </div>
+        <div class="card" style="text-align: center; padding: 14px;">
+          <p id="stat-week" style="font-size: 24px; font-weight: 700; color: #06b6d4; margin: 0;">0</p>
+          <p style="font-size: 12px; color: #64748b; margin: 4px 0 0;">This Week</p>
+        </div>
+        <div class="card" style="text-align: center; padding: 14px;">
+          <p id="stat-plan" style="font-size: 24px; font-weight: 700; color: #10b981; margin: 0;">Free</p>
+          <p style="font-size: 12px; color: #64748b; margin: 4px 0 0;">Plan</p>
+        </div>
+        <div class="card" style="text-align: center; padding: 14px;">
+          <p id="stat-streak" style="font-size: 24px; font-weight: 700; color: #f59e0b; margin: 0;">0</p>
+          <p style="font-size: 12px; color: #64748b; margin: 4px 0 0;">Day Streak</p>
+        </div>
+      </div>
+
+      <!-- Platform Breakdown -->
+      <div class="card">
+        <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">By Platform</h4>
+        <div id="platform-breakdown" style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <span style="padding: 4px 12px; background: #e0e7ff; color: #6366f1; border-radius: 20px; font-size: 12px;">ChatGPT: 0</span>
+          <span style="padding: 4px 12px; background: #fef3c7; color: #d97706; border-radius: 20px; font-size: 12px;">Claude: 0</span>
+          <span style="padding: 4px 12px; background: #d1fae5; color: #059669; border-radius: 20px; font-size: 12px;">Gemini: 0</span>
+        </div>
+      </div>
+
+      <!-- Last Activity -->
+      <div class="card">
+        <p id="last-activity" style="font-size: 12px; color: #94a3b8; margin: 0;">Last opinion: Never</p>
+      </div>
+    </div>
+
     <div id="tab-history" class="tab-content">
       <div id="history-list" class="card" style="padding: 0; max-height: 400px; overflow-y: auto;">
         <div class="empty-state">
@@ -408,43 +458,115 @@
     </div>
 
     <div id="tab-pro" class="tab-content">
-      <div class="card" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); border: none;">
-        <h3 style="color: white; font-size: 18px; margin-bottom: 8px;">Upgrade to Pro</h3>
-        <p style="color: rgba(255,255,255,0.8); font-size: 13px; margin-bottom: 16px;">Unlock unlimited opinions and advanced features</p>
-        <ul style="list-style: none; margin-bottom: 16px;">
-          <li style="display: flex; align-items: center; gap: 8px; color: white; font-size: 13px; padding: 4px 0;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
-            100 opinions/month
-          </li>
-          <li style="display: flex; align-items: center; gap: 8px; color: white; font-size: 13px; padding: 4px 0;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
-            Multiple AI perspectives
-          </li>
-          <li style="display: flex; align-items: center; gap: 8px; color: white; font-size: 13px; padding: 4px 0;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
-            Text-to-speech
-          </li>
-          <li style="display: flex; align-items: center; gap: 8px; color: white; font-size: 13px; padding: 4px 0;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
-            History & saves
-          </li>
-        </ul>
-        <button class="btn" style="background: white; color: #6366f1;">Upgrade for $9/mo</button>
+      <!-- Current Plan -->
+      <div class="card">
+        <p style="font-size: 12px; color: #64748b; margin-bottom: 4px;">Current Plan</p>
+        <h3 style="font-size: 20px; font-weight: 700; color: #0f172a; margin: 0;">Free</h3>
+        <p style="font-size: 13px; color: #64748b;">20 opinions/month</p>
+      </div>
+
+      <!-- Upgrade Button -->
+      <button class="btn btn-primary" id="upgradeBtn" style="width: 100%; margin-bottom: 20px;">
+        Upgrade to Pro - $4.99/mo
+      </button>
+
+      <!-- Feature Comparison -->
+      <div class="card">
+        <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 16px;">Free vs Pro</h4>
+        <table style="width: 100%; font-size: 13px;">
+          <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 10px 0;">20 opinions/month</td>
+            <td style="text-align: right; color: #10b981;">✓</td>
+            <td style="text-align: right; color: #10b981; font-weight: 600;">Unlimited</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 10px 0;">Basic perspectives</td>
+            <td style="text-align: right; color: #10b981;">✓</td>
+            <td style="text-align: right; color: #10b981; font-weight: 600;">Multiple AI</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 10px 0;">Text-to-speech</td>
+            <td style="text-align: right; color: #94a3b8;">—</td>
+            <td style="text-align: right; color: #10b981; font-weight: 600;">✓</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 10px 0;">History export</td>
+            <td style="text-align: right; color: #94a3b8;">—</td>
+            <td style="text-align: right; color: #10b981; font-weight: 600;">✓</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 0;">Use own API keys</td>
+            <td style="text-align: right; color: #94a3b8;">—</td>
+            <td style="text-align: right; color: #10b981; font-weight: 600;">✓</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- FAQ -->
+      <div class="card">
+        <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">Questions?</h4>
+        <details style="margin-bottom: 8px;">
+          <summary style="cursor: pointer; font-size: 13px; color: #64748b;">Can I cancel anytime?</summary>
+          <p style="font-size: 12px; color: #94a3b8; padding: 8px 0;">Yes, cancel anytime from your account settings.</p>
+        </details>
+        <details>
+          <summary style="cursor: pointer; font-size: 13px; color: #64748b;">What payment methods?</summary>
+          <p style="font-size: 12px; color: #94a3b8; padding: 8px 0;">Google Pay, Apple Pay, PayPal, or card.</p>
+        </details>
       </div>
     </div>
+  </div>
 
-    <div class="footer">
-      <a href="#" id="dashboardLink">Dashboard</a>
-      <a href="#">Settings</a>
-      <a href="#">Help</a>
+  <!-- Settings Tab -->
+  <div id="tab-settings" class="tab-content" style="display: none;">
+    <div class="card">
+      <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">API Connections</h4>
+      <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Connect your AI subscriptions to get broader perspectives from multiple AI models.</p>
+      <div style="margin-bottom: 12px;">
+        <label style="font-size: 12px; color: #64748b; display: block; margin-bottom: 4px;">Anthropic API Key</label>
+        <input type="password" id="api-anthropic" placeholder="sk-ant-..." style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px;">
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="font-size: 12px; color: #64748b; display: block; margin-bottom: 4px;">OpenAI API Key</label>
+        <input type="password" id="api-openai" placeholder="sk-..." style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px;">
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="font-size: 12px; color: #64748b; display: block; margin-bottom: 4px;">Google API Key</label>
+        <input type="password" id="api-google" placeholder="AIza..." style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px;">
+      </div>
+      <button class="btn btn-primary" id="saveApiKeys" style="margin-top: 8px; width: 100%;">Save API Keys</button>
+    </div>
+    <div class="card">
+      <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">Preferences</h4>
+      <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 8px;">
+        <input type="checkbox" id="pref-auto-prompt" checked> Show auto-prompt after 7 minutes
+      </label>
+      <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 8px;">
+        <input type="checkbox" id="pref-tts" checked> Enable text-to-speech
+      </label>
+      <label style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
+        <input type="checkbox" id="pref-sound"> Sound notifications
+      </label>
+    </div>
+  </div>
+
+  <!-- Help Tab -->
+  <div id="tab-help" class="tab-content" style="display: none;">
+    <div class="card">
+      <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">What is Third Opinion?</h4>
+      <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">Third Opinion helps you think more critically about AI responses by offering alternative perspectives and challenging confirmation bias.</p>
+      
+      <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">How does it work?</h4>
+      <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">When you're chatting with AI for 7+ minutes with few messages, we'll prompt you to get a second opinion. Or click the extension anytime to analyze the current conversation.</p>
+      
+      <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">What are credits?</h4>
+      <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">Free tier includes 20 opinions per month. Pro tier includes unlimited opinions and multiple AI perspectives.</p>
+      
+      <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">How do I connect my AI APIs?</h4>
+      <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">Go to Settings to add your API keys. This enables the extension to call different AI models for broader perspectives.</p>
+      
+      <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">Is my data secure?</h4>
+      <p style="font-size: 13px; color: #64748b;">Yes. Your conversations are processed locally and we don't store them. API keys are stored in your browser's secure storage.</p>
     </div>
   </div>
 
