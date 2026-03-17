@@ -15,6 +15,8 @@
     "*://claude.ai/*",
     "*://gemini.google.com/*",
     "*://www.perplexity.ai/*",
+    "*://www.minimax.io/*",
+    "*://minimax.io/*",
     "http://localhost:*/*"
   ],
   "background": {
@@ -27,7 +29,9 @@
         "*://chat.openai.com/*",
         "*://claude.ai/*",
         "*://gemini.google.com/*",
-        "*://www.perplexity.ai/*"
+        "*://www.perplexity.ai/*",
+        "*://www.minimax.io/*",
+        "*://minimax.io/*"
       ],
       "js": ["content-script.js"],
       "css": ["content.css"],

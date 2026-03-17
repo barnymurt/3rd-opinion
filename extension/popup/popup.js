@@ -63,14 +63,16 @@ document.addEventListener('DOMContentLoaded', () => {
       
       const url = tabs[0].url;
       const urlLower = url.toLowerCase();
-      const supported = urlLower.includes('claude.ai') || urlLower.includes('chatgpt.com') || urlLower.includes('chat.openai.com') || urlLower.includes('gemini.google.com') || urlLower.includes('perplexity.ai');
+      const supported = urlLower.includes('claude.ai') || urlLower.includes('chatgpt.com') || urlLower.includes('chat.openai.com') || urlLower.includes('gemini.google.com') || urlLower.includes('perplexity.ai') || urlLower.includes('minimax.io');
       
       if (!supported) {
-        alert('Please open an AI chat page (Claude, ChatGPT, Gemini, or Perplexity)');
+        alert('Please open an AI chat page (Claude, ChatGPT, Gemini, Perplexity, or Minimax)');
         btn.textContent = 'Get Third Opinion';
         btn.disabled = false;
         return;
       }
+      
+      const platform = urlLower.includes('claude') ? 'claude' : urlLower.includes('chat') ? 'chatgpt' : urlLower.includes('gemini') ? 'gemini' : urlLower.includes('perplexity') ? 'perplexity' : urlLower.includes('minimax') ? 'minimax' : 'other';
       
       // Get AI response from page via content script
       chrome.tabs.sendMessage(tabs[0].id, { action: 'getAIResponse' }, (response) => {
@@ -99,14 +101,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const requestData = {
           aiResponse: aiResponse.substring(0, 8000),
           userQuestion: userQuestion.substring(0, 1000),
-          platform: urlLower.includes('claude') ? 'claude' : urlLower.includes('chat') ? 'chatgpt' : urlLower.includes('gemini') ? 'gemini' : urlLower.includes('perplexity') ? 'perplexity' : 'other',
+          platform: urlLower.includes('claude') ? 'claude' : urlLower.includes('chat') ? 'chatgpt' : urlLower.includes('gemini') ? 'gemini' : urlLower.includes('perplexity') ? 'perplexity' : urlLower.includes('minimax') ? 'minimax' : 'other',
           url: url,
           chatName: aiResponse.substring(0, 40) + '...'
         };
         
         console.log('Sending to API:', JSON.stringify(requestData).substring(0, 500));
         
-        btn.textContent = 'Analyzing...';makeApiCall(requestData, btn);
+        btn.textContent = 'Analyzing...';
+        
+        makeApiCall(requestData, btn);
       });
     });
   });

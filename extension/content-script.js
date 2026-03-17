@@ -30,18 +30,19 @@
     if (hostname.includes('claude.ai')) return 'claude';
     if (hostname.includes('gemini.google.com')) return 'gemini';
     if (hostname.includes('perplexity.ai')) return 'perplexity';
+    if (hostname.includes('minimax.io') || hostname.includes('minimax')) return 'minimax';
     return null;
   }
 
   // Get message container selector for current platform
   function getMessageSelector() {
-    const platform = detectPlatform();
     const hostname = window.location.hostname;
     
     if (hostname.includes('chatgpt.com') || hostname.includes('chat.openai.com')) return '[data-message-author-role="assistant"]';
     if (hostname.includes('claude.ai')) return '[class*="message"], [class*="ConversationItem"], [data-testid*="message"]';
-    if (hostname.includes('gemini.google.com')) return '[class*="response"]';
-    if (hostname.includes('perplexity.ai')) return '[class*="answer-item"]';
+    if (hostname.includes('gemini.google.com')) return '[class*="response-container"], [class*="gemini-response"]';
+    if (hostname.includes('perplexity.ai')) return '[class*="answer-item"], [class*="perplexity-answer"]';
+    if (hostname.includes('minimax.io') || hostname.includes('minimax')) return '[class*="assistant-message"], [class*="mm-message"]';
     return null;
   }
 
@@ -67,18 +68,40 @@
         '#prompt-textarea'
       ],
       'claude': [
-        '[class*="user"]',
+        '[data-message-author-role="user"]',
+        '[class*="user-message"]',
+        '[class*="human-message"]',
         '[class*="prompt"]',
-        '[data-testid*="user"]'
+        '[data-testid*="user"]',
+        'textarea[placeholder*="message"]',
+        'textarea[placeholder*="Message"]'
       ],
       'gemini': [
+        '[data-message-author-role="user"]',
         '[class*="user-input"]',
-        '[class*="query"]',
-        '[class*="input-field"]'
+        '[class*="query-input"]',
+        '[class*="input-field"]',
+        'textarea[placeholder*="Ask"]',
+        'textarea[placeholder*="message"]'
       ],
       'perplexity': [
+        '[data-message-author-role="user"]',
         '[class*="user-query"]',
-        '[class*="search-input"]'
+        '[class*="user-message"]',
+        '[class*="search-input"]',
+        'textarea[placeholder*="Ask"]',
+        'textarea[placeholder*="question"]'
+      ],
+      'minimax': [
+        '[data-message-author-role="user"]',
+        '[class*="user-message"]',
+        '[class*="human-message"]',
+        '[class*="user-input"]',
+        'textarea[placeholder*="message"]',
+        'textarea[placeholder*="Message"]',
+        'textarea[placeholder*="Ask"]',
+        'input[placeholder*="message"]',
+        'input[placeholder*="Message"]'
       ]
     };
     
@@ -92,9 +115,9 @@
         console.log('Found elements:', elements.length);
         for (let i = elements.length - 1; i >= 0; i--) {
           const el = elements[i];
-          const text = (el.innerText || el.textContent || '').trim();
+          const text = (el.innerText || el.textContent || el.value || '').trim();
           console.log('Element text length:', text.length, 'preview:', text.substring(0, 80));
-          if (text.length > 10 && !text.includes('Message ChatGPT')) {
+          if (text.length > 10 && !text.includes('Message') && !text.includes('Ask')) {
             lastUserMessage = text;
             break;
           }
@@ -113,38 +136,54 @@
     console.log('=== EXTRACTING FOR PLATFORM:', platform, '===');
     console.log('URL:', window.location.href);
     
-    // Get body text length as a quick check
     const bodyText = document.body.innerText;
     console.log('Body text length:', bodyText.length);
     
-    // Try multiple selectors for each platform
     const selectors = {
       'chatgpt': [
         '[data-message-author-role="assistant"]',
-        '[class*="message"]',
-        '.markdown'
+        '[data-message-author-role="assistant"] .markdown',
+        '[data-message-author-role="assistant"] [class*="content"]',
+        '[class*="assistant"] [class*="message"]',
+        '[class*="message"]:not([data-message-author-role="user"])'
       ],
       'claude': [
+        '[data-message-author-role="assistant"]',
+        '[class*="assistant-message"]',
+        '[class*="ai-message"]',
         '[class*="message"]',
-        '[class*="assistant"]', 
         '[data-testid*="message"]',
         '.prose',
         '.claude-message'
       ],
       'gemini': [
-        '[class*="response"]',
-        '[class*="output"]'
+        '[data-message-author-role="model"]',
+        '[data-message-author-role="assistant"]',
+        '[class*="response-container"]',
+        '[class*="gemini-response"]',
+        '[class*="output"]',
+        '[class*="model-response"]'
       ],
       'perplexity': [
-        '[class*="answer"]',
-        '[class*="result"]'
+        '[data-message-author-role="assistant"]',
+        '[class*="answer-item"]',
+        '[class*="perplexity-answer"]',
+        '[class*="result"]',
+        '[class*="ai-response"]'
+      ],
+      'minimax': [
+        '[data-message-author-role="assistant"]',
+        '[class*="assistant-message"]',
+        '[class*="ai-message"]',
+        '[class*="mm-response"]',
+        '[class*="minimax-response"]',
+        '[class*="model-output"]'
       ]
     };
     
-    const platformSelectors = selectors[platform] || selectors['claude']; // default to claude selectors
+    const platformSelectors = selectors[platform] || selectors['claude'];
     let longestText = '';
     
-    // Try each selector
     for (const selector of platformSelectors) {
       try {
         const elements = document.querySelectorAll(selector);
@@ -161,13 +200,11 @@
       }
     }
     
-    // Fallback: find any large text block
     if (longestText.length < 50) {
       console.log('Trying fallback...');
       const allElements = document.querySelectorAll('div, p, span, article');
       for (const el of allElements) {
         const text = (el.innerText || '').trim();
-        // Skip inputs, buttons, and very short text
         if (text.length > 100 && text.length < 50000 && 
             !el.matches('input, textarea, button') &&
             !el.closest('form')) {
