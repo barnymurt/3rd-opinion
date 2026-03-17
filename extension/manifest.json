@@ -10,6 +10,7 @@
     "tabs"
   ],
   "host_permissions": [
+    "*://chatgpt.com/*",
     "*://chat.openai.com/*",
     "*://claude.ai/*",
     "*://gemini.google.com/*",
@@ -22,6 +23,7 @@
   "content_scripts": [
     {
       "matches": [
+        "*://chatgpt.com/*",
         "*://chat.openai.com/*",
         "*://claude.ai/*",
         "*://gemini.google.com/*",

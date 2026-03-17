@@ -55,22 +55,29 @@
   // Extract user's question that prompted the AI response
   function extractUserQuestion() {
     const platform = detectPlatform();
+    console.log('=== EXTRACTING USER QUESTION FOR:', platform, '===');
     
     const selectors = {
       'chatgpt': [
         '[data-message-author-role="user"]',
-        '[class*="user-message"]'
+        '[data-message-author-role="user"] [class*="message"]',
+        '[class*="user-message"]',
+        '.chat-input-message',
+        'textarea[placeholder*="Message"]'
       ],
       'claude': [
         '[class*="user"]',
-        '[class*="prompt"]'
+        '[class*="prompt"]',
+        '[data-testid*="user"]'
       ],
       'gemini': [
         '[class*="user-input"]',
-        '[class*="query"]'
+        '[class*="query"]',
+        '[class*="input-field"]'
       ],
       'perplexity': [
-        '[class*="user-query"]'
+        '[class*="user-query"]',
+        '[class*="search-input"]'
       ]
     };
     
@@ -79,18 +86,38 @@
     
     for (const selector of platformSelectors) {
       try {
+        console.log('Trying user selector:', selector);
         const elements = document.querySelectorAll(selector);
+        console.log('Found elements:', elements.length);
         for (let i = elements.length - 1; i >= 0; i--) {
           const text = (elements[i].innerText || elements[i].textContent || '').trim();
+          console.log('Element text length:', text.length, 'preview:', text.substring(0, 50));
           if (text.length > 10) {
             lastUserMessage = text;
             break;
           }
         }
         if (lastUserMessage) break;
-      } catch (e) {}
+      } catch (e) {
+        console.log('Selector error:', selector, e.message);
+      }
     }
     
+    // Fallback: look for any input or textarea with content
+    if (!lastUserMessage) {
+      console.log('Trying fallback for user question...');
+      const inputs = document.querySelectorAll('input[type="text"], textarea');
+      for (const input of inputs) {
+        const val = (input.value || '').trim();
+        if (val.length > 10) {
+          lastUserMessage = val;
+          console.log('Found in input:', val.substring(0, 50));
+          break;
+        }
+      }
+    }
+    
+    console.log('Final user question:', lastUserMessage ? lastUserMessage.substring(0, 100) : 'EMPTY');
     return lastUserMessage;
   }
   function extractLatestAIResponse() {
@@ -292,6 +319,7 @@
   // Handle get opinion button click
   async function handleGetOpinion() {
     const aiResponse = extractLatestAIResponse();
+    const userQuestion = extractUserQuestion();
     if (!aiResponse || aiResponse.length < 50) {
       alert('Please wait for a longer AI response before getting a second opinion.');
       return;
@@ -302,6 +330,7 @@
       type: 'GET_SECOND_OPINION',
       data: {
         aiResponse: aiResponse,
+        userQuestion: userQuestion,
         platform: detectPlatform(),
         url: window.location.href
       }
@@ -646,19 +675,18 @@
     if (message.action === 'getAIResponse' || message.action === 'getFullPageText') {
       console.log('=== GOT MESSAGE:', message.action, '===');
       
-      // For getFullPageText, just return body text
-      if (message.action === 'getFullPageText') {
-        sendResponse({ text: document.body.innerText });
-        return true;
-      }
-      
-      // Return AI response and user question to popup
+      // Extract AI response and user question
       const aiResponse = extractLatestAIResponse();
       const userQuestion = extractUserQuestion();
       const chatName = generateChatName(aiResponse);
-      console.log('User question:', userQuestion);
+      
+      console.log('User question:', userQuestion ? userQuestion.substring(0, 100) : 'none');
       console.log('AI response length:', aiResponse.length);
+      console.log('AI response preview:', aiResponse.substring(0, 200));
+      
+      // Return combined data
       sendResponse({
+        text: aiResponse,
         aiResponse: aiResponse,
         userQuestion: userQuestion,
         platform: detectPlatform(),
@@ -669,7 +697,9 @@
     
     if (message.action === 'triggerSecondOpinion' || message.action === 'getSecondOpinion') {
       const aiResponse = extractLatestAIResponse();
+      const userQuestion = extractUserQuestion();
       console.log('Extracted AI response:', aiResponse ? aiResponse.substring(0, 100) + '...' : 'EMPTY');
+      console.log('Extracted user question:', userQuestion ? userQuestion.substring(0, 100) + '...' : 'EMPTY');
       const chatName = generateChatName(aiResponse);
       console.log('Generated chat name:', chatName);
       console.log('Platform:', detectPlatform());
@@ -681,6 +711,7 @@
         type: 'GET_SECOND_OPINION',
         data: {
           aiResponse: aiResponse,
+          userQuestion: userQuestion,
           platform: detectPlatform(),
           url: window.location.href,
           chatName: chatName
