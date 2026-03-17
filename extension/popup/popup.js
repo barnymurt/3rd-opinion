@@ -95,9 +95,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         console.log('AI response length:', aiResponse.length);
         console.log('User question:', userQuestion ? userQuestion.substring(0, 100) : 'EMPTY');
-        console.log('Sending to API:', JSON.stringify(requestData).substring(0, 500));
-        
-        btn.textContent = 'Analyzing...';
         
         const requestData = {
           aiResponse: aiResponse.substring(0, 8000),
@@ -107,7 +104,9 @@ document.addEventListener('DOMContentLoaded', () => {
           chatName: aiResponse.substring(0, 40) + '...'
         };
         
-        makeApiCall(requestData, btn);
+        console.log('Sending to API:', JSON.stringify(requestData).substring(0, 500));
+        
+        btn.textContent = 'Analyzing...';makeApiCall(requestData, btn);
       });
     });
   });
