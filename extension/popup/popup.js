@@ -351,8 +351,8 @@ function displayLocalHistory() {
     }
     
     historyList.innerHTML = history.slice(0, 10).map((opinion, index) => `
-      <div style="border-bottom: 1px solid #e2e8f0;">
-        <div style="padding: 14px 18px; cursor: pointer;" onclick="toggleHistoryItem(${index})">
+      <div class="history-item" data-index="${index}" style="border-bottom: 1px solid #e2e8f0;">
+        <div class="history-item-header" data-index="${index}" style="padding: 14px 18px; cursor: pointer;">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <div style="flex:1;">
               <p style="font-size: 14px; font-weight: 600; color: #0f172a; margin: 0;">${opinion.chatName || 'Untitled Chat'}</p>
@@ -364,10 +364,25 @@ function displayLocalHistory() {
         <div id="history-detail-${index}" style="display:none; padding: 0 18px 14px; background:#f8fafc;">
           <p style="font-size:13px; color:#64748b; margin-bottom:8px;"><strong>AI Response:</strong> ${(opinion.aiResponse || '').substring(0, 150)}...</p>
           <p style="font-size:13px; color:#64748b; margin-bottom:8px;"><strong>User Question:</strong> ${(opinion.userQuestion || '').substring(0, 100)}...</p>
-          <button onclick="viewLocalOpinion(${index})" style="padding:8px 16px; background:#6366f1; color:white; border:none; border-radius:6px; font-size:12px; cursor:pointer;">View Full Opinion</button>
+          <button class="view-opinion-btn" data-index="${index}" style="padding:8px 16px; background:#6366f1; color:white; border:none; border-radius:6px; font-size:12px; cursor:pointer;">View Full Opinion</button>
         </div>
       </div>
     `).join('');
+    
+    // Add event listeners using delegation
+    historyList.querySelectorAll('.history-item-header').forEach(el => {
+      el.addEventListener('click', (e) => {
+        const index = parseInt(el.dataset.index);
+        toggleHistoryItem(index);
+      });
+    });
+    
+    historyList.querySelectorAll('.view-opinion-btn').forEach(el => {
+      el.addEventListener('click', (e) => {
+        const index = parseInt(el.dataset.index);
+        viewLocalOpinion(index);
+      });
+    });
   });
 }
 
@@ -384,7 +399,7 @@ window.viewLocalOpinion = function(index) {
       <div style="background:white;border-radius:14px;max-width:480px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
         <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;">
           <span style="font-size:16px;font-weight:600;">${opinion.chatName || 'Third Opinion'}</span>
-          <button onclick="this.closest('[style*=\\"position:fixed\\"]').remove()" style="background:none;border:none;color:white;font-size:24px;cursor:pointer;padding:0;line-height:1;opacity:0.8;">&times;</button>
+          <button id="close-opinion-panel" style="background:none;border:none;color:white;font-size:24px;cursor:pointer;padding:0;line-height:1;opacity:0.8;">&times;</button>
         </div>
         <div style="padding:20px;">
           <h4 style="font-size:14px;font-weight:600;color:#0f172a;margin:0 0 12px;">Quick Summary</h4>
@@ -398,6 +413,10 @@ window.viewLocalOpinion = function(index) {
         </div>
       </div>
     `;
+    
+    // Add event listener for close button
+    panel.querySelector('#close-opinion-panel').addEventListener('click', () => panel.remove());
+    
     document.body.appendChild(panel);
   });
 };
