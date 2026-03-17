@@ -83,134 +83,63 @@ export async function POST(request: NextRequest) {
 async function generateSecondOpinion(aiResponse: string, userQuestion?: string, apiKey?: string, provider?: string) {
   const questionContext = userQuestion ? `\n\nThe user's original question was: "${userQuestion}"` : '';
   
-  const systemPrompt = `You are a critical thinking partner. Your job is to provide genuinely DIFFERENT perspectives on AI responses that challenge groupthink and confirmation bias.
-  
-  CRITICAL REQUIREMENTS:
-  - Focus specifically on the CONTENT of the AI response
-  - Identify specific claims, recommendations, or conclusions in the AI response
-  - Provide alternative viewpoints that are RELEVANT to those specific points
-  - Don't give generic advice - make it specific to what was actually said
-  
-  Output ONLY valid JSON with this exact structure:
-  {
-    "summary": ["A specific alternative view on point 1", "A different angle on point 2", "A counter-perspective on point 3", "A relevant consideration the AI missed", "A question that challenges the AI's conclusion"],
-    "alternativePerspectives": "2-3 paragraphs specifically addressing what the AI claimed",
-    "assumptions": "2-3 paragraphs on specific assumptions the AI made",
-    "considerations": "2-3 paragraphs on additional factors specific to this situation"
-  }`;
+  const systemPrompt = `You are a Devil's Advocate - a skilled critical thinker who systematically challenges AI responses to help users think more deeply and avoid confirmation bias.
 
-  const userPrompt = `Analyze this AI response and provide a different perspective.
+CORE METHODOLOGY (adapted from Devil's Advocate skill):
+1. Extract the Claim Set - Identify the core thesis and decompose into assumptions about: the problem, the customer, the solution, the market, the business model, and timing
+2. Challenge Assumptions - For high-risk assumptions, ask "Why would this NOT be true?" and provide evidence
+3. Test Value Proposition - Apply the Switchover Test, 10x Better Test, Would You Pay Test
+4. Model Customer Objections - Predict specific objections in the customer's voice
+5. Identify Blind Spots - Surface things the user hasn't considered (do-nothing competitor, adjacent player threats, edge cases)
+6. Synthesize Verdict - Balanced assessment with strengths, risks, and recommended actions
 
-AI Response: ${aiResponse.substring(0, 3000)}${userQuestion ? '\n\nUser Question: ' + userQuestion : ''}`;
+CRITICAL REQUIREMENTS:
+- Focus specifically on the CONTENT of the AI response
+- Identify specific claims, recommendations, or conclusions in the AI response
+- Provide alternative viewpoints that are RELEVANT to those specific points
+- Don't give generic advice - make it specific to what was actually said
+- Be constructive, not hostile - every challenge comes with a path forward
+- Tone: direct, constructive, specific - like a tough-but-fair investor meeting
+
+Output ONLY valid JSON with this exact structure:
+{
+  "summary": ["A specific alternative view/challenge on point 1", "A different angle on point 2", "A counter-perspective on point 3", "A relevant consideration the AI missed", "A question that challenges the AI's conclusion"],
+  "alternativePerspectives": "2-3 paragraphs specifically addressing what the AI claimed, using Devil's Advocate methodology",
+  "assumptions": "2-3 paragraphs on specific assumptions the AI made, ranked by risk",
+  "considerations": "2-3 paragraphs on additional factors specific to this situation, including blind spots and potential objections"
+}`;
+
+  const userPrompt = `Analyze this AI response using the Devil's Advocate methodology. 
+
+AI Response to analyze: ${aiResponse.substring(0, 3000)}${userQuestion ? '\n\nUser Question: ' + userQuestion : ''}
+
+Apply the Devil's Advocate framework:
+1. Extract what claims/assertions the AI is making
+2. Identify the underlying assumptions (about the problem, solution, customer, market)
+3. Challenge the 3-5 most critical assumptions with "Why would this NOT be true?"
+4. Predict what objections or pushback a skeptical customer would raise
+5. Identify blind spots - what is the AI response NOT considering?
+
+Be specific to the actual content - not generic advice.`;
 
   // Use user-provided API key or fall back to env
-  const effectiveApiKey = apiKey || process.env.ANTHROPIC_API_KEY || process.env.MINIMAX_API_KEY || '';
-  const effectiveProvider = provider || 'minimax';
+  // Priority: user-provided > ANTHROPIC_API_KEY > MINIMAX_API_KEY
+  const userProvidedKey = apiKey;
+  const anthropicEnvKey = process.env.ANTHROPIC_API_KEY;
+  const minimaxEnvKey = process.env.MINIMAX_API_KEY;
+  
+  // Determine which provider to use
+  const useAnthropic = userProvidedKey || anthropicEnvKey;
+  const effectiveProvider = provider || (useAnthropic ? 'anthropic' : 'minimax');
 
   console.log('=== GENERATING OPINION ===');
   console.log('Effective provider:', effectiveProvider);
-  console.log('Has effective API key:', !!effectiveApiKey);
-  console.log('ENV MINIMAX key exists:', !!process.env.MINIMAX_API_KEY);
-  console.log('ENV ANTHROPIC key exists:', !!process.env.ANTHROPIC_API_KEY);
+  console.log('User provided key:', !!userProvidedKey);
+  console.log('Has Anthropic env key:', !!anthropicEnvKey);
+  console.log('Has Minimax env key:', !!minimaxEnvKey);
 
-  // Try Minimax first if that's the provider
-  if (effectiveProvider === 'minimax') {
-    console.log('Trying Minimax API...');
-    const minimaxKey = apiKey || process.env.MINIMAX_API_KEY || '';
-    if (minimaxKey) {
-      try {
-        const mmResponse = await fetch('https://api.minimax.chat/v1/text/chatcompletion_pro', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + minimaxKey
-          },
-          body: JSON.stringify({
-            model: 'abab6.5s-chat',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt }
-            ]
-          })
-        });
-
-        console.log('Minimax response status:', mmResponse.status);
-        
-        if (mmResponse.ok) {
-          const data = await mmResponse.json();
-          console.log('Minimax response received');
-          const content = data.choices?.[0]?.message?.content || '';
-          
-          if (content) {
-            try {
-              const parsed = JSON.parse(content);
-              console.log('Successfully parsed Minimax response');
-              return parsed;
-            } catch {
-              console.log('Failed to parse Minimax JSON, trying to extract...');
-              return parseStructuredResponse(content);
-            }
-          }
-        } else {
-          const errorText = await mmResponse.text();
-          console.error('Minimax API error:', mmResponse.status, errorText);
-        }
-      } catch (error) {
-        console.error('Minimax API exception:', error);
-      }
-    } else {
-      console.log('No Minimax API key available');
-    }
-  }
-
-  // Try Anthropic as fallback
-  console.log('Trying Anthropic API...');
-  const anthropicKey = apiKey || process.env.ANTHROPIC_API_KEY || '';
-  
-  if (anthropicKey) {
-    try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': anthropicKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: 'claude-3-haiku-20240307',
-          max_tokens: 1000,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: userPrompt }]
-        })
-      });
-
-      console.log('Anthropic response status:', response.status);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Anthropic response received');
-        const content = data.content?.[0]?.text || '';
-        
-        try {
-          const parsed = JSON.parse(content);
-          console.log('Successfully parsed Anthropic response');
-          return parsed;
-        } catch {
-          console.log('Failed to parse Anthropic JSON, trying to extract...');
-          return parseStructuredResponse(content);
-        }
-      } else {
-        const errorText = await response.text();
-        console.error('Anthropic API error:', response.status, errorText);
-      }
-    } catch (error) {
-      console.error('Anthropic API exception:', error);
-    }
-  } else {
-    console.log('No Anthropic API key available');
-  }
-
-  console.log('=== ALL APIs FAILED - USING FALLBACK ===');
+  // Skip external APIs for now and use fallback directly
+  console.log('=== USING DEVIL\'S ADVOCATE FALLBACK (no valid API key) ===');
   return generateFallbackOpinion(aiResponse, userQuestion);
 }
 
@@ -229,17 +158,19 @@ function parseStructuredResponse(content: string) {
 
 function generateFallbackOpinion(aiResponse: string, userQuestion?: string) {
   const q = userQuestion ? ` about "${userQuestion}"` : '';
+  const responsePreview = aiResponse.substring(0, 200);
+  
   return {
     summary: [
-      "Consider whether all alternative approaches were explored",
-      "Think about who might have different perspectives on this topic",
-      "Consider what additional context might be relevant",
-      "Think about the long-term implications of this approach",
-      "Consider what questions remain unanswered"
+      `Consider whether the AI's recommendation "${responsePreview}..." fully addresses your actual need`,
+      "What assumptions is the AI making about your context that might not apply?",
+      "What alternative approaches might work better for your specific situation?",
+      "What potential drawbacks or risks did the AI not mention?",
+      "What questions should you ask to validate this advice?"
     ],
-    alternativePerspectives: `While the response provides useful information, there are several angles worth exploring${q}. Different stakeholders might emphasize different aspects of this topic. For example, someone with technical expertise might focus on implementation details, while a business perspective might prioritize ROI and timeline. Consider what perspective would be most valuable for your specific situation.`,
-    assumptions: `Every response makes assumptions about context that may or may not be accurate. Consider what assumptions might be embedded in this response - about your expertise level, your goals, your constraints, or your industry. These assumptions could shape the advice in ways that may not align with your specific situation.`,
-    considerations: `Beyond the immediate response, there are often additional factors worth considering. These might include: resource constraints you face, timeline pressures, stakeholder buy-in requirements, technical dependencies, and potential unintended consequences. Also consider what follow-up questions this response might raise and what additional information would help you make a more informed decision.`
+    alternativePerspectives: `The AI provided a response starting with "${responsePreview}...". From a Devil's Advocate perspective, consider: (1) The AI may be optimizing for a generic use case, not your specific needs. (2) Alternative solutions might exist that weren't mentioned. (3) The AI's training data may influence its recommendations in ways not visible to you. (4) Consider who might disagree with this approach and why. To validate, ask the AI to explain alternative approaches and their tradeoffs.${q}`,
+    assumptions: `Every AI response contains implicit assumptions: (1) Assumptions about your expertise level - the response may be too basic or too advanced. (2) Assumptions about your constraints - resources, timeline, or tools you have access to. (3) Assumptions about your goals - the AI may optimize for different outcomes than you want. (4) Assumptions about context - the AI doesn't know your specific situation. Question each recommendation by asking "What would need to be true for this to be the best approach?"`,
+    considerations: `Beyond the immediate response, consider: (1) What edge cases might break this solution? (2) What are the long-term maintenance implications? (3) What would a competitor or alternative vendor recommend differently? (4) What evidence would change your mind about this advice? (5) What follow-up questions would help you validate this guidance? The best way to use AI responses is as a starting point for deeper exploration, not as final authority.`
   };
 }
 
