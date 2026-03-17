@@ -25,6 +25,11 @@ document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
       tab.classList.add('active');
       document.getElementById('tab-' + tab.dataset.tab).style.display = 'block';
+      
+      // Reload history when switching to history tab
+      if (tab.dataset.tab === 'history') {
+        displayLocalHistory();
+      }
     });
   });
   
@@ -209,12 +214,17 @@ function makeApiCall(requestData, btn) {
         createdAt: new Date().toISOString()
       };
       
+      console.log('Saving opinion to history:', newOpinion);
+      
       chrome.storage.local.get(['opinionHistory'], (result) => {
         const history = result.opinionHistory || [];
+        console.log('Current history length:', history.length);
         history.unshift(newOpinion);
         // Keep last 50 opinions
         if (history.length > 50) history.pop();
-        chrome.storage.local.set({ opinionHistory: history });
+        chrome.storage.local.set({ opinionHistory: history }, () => {
+          console.log('History saved, new length:', history.length);
+        });
         
         // Reload history display
         displayLocalHistory();
@@ -327,8 +337,10 @@ function loadHistory() {
 }
 
 function displayLocalHistory() {
+  console.log('Loading local history...');
   chrome.storage.local.get(['opinionHistory'], (result) => {
     const history = result.opinionHistory || [];
+    console.log('Loaded history length:', history.length);
     const historyList = document.getElementById('history-list');
     
     if (!historyList) return;
