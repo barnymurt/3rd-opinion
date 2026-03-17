@@ -29,7 +29,12 @@ export async function POST(request: NextRequest) {
   
   try {
     const body = await request.json();
-    const { aiResponse, userQuestion, platform, url, chatName } = body;
+    const { aiResponse, userQuestion, platform, url, chatName, apiKey, provider } = body;
+
+    console.log('=== API REQUEST ===');
+    console.log('Provider:', provider);
+    console.log('Has API key:', !!apiKey);
+    console.log('User question:', userQuestion ? userQuestion.substring(0, 50) + '...' : 'none');
 
     if (!aiResponse) {
       return NextResponse.json(
@@ -38,7 +43,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const opinion = await generateSecondOpinion(aiResponse, userQuestion);
+    const opinion = await generateSecondOpinion(aiResponse, userQuestion, apiKey, provider);
 
     const savedOpinion = {
       id: Date.now().toString(),
@@ -64,13 +69,13 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Second Opinion error:', error);
     return NextResponse.json(
-      { error: 'Failed to generate second opinion' },
+      { error: 'Failed to generate second opinion', details: String(error) },
       { status: 500 }
     );
   }
 }
 
-async function generateSecondOpinion(aiResponse: string, userQuestion?: string) {
+async function generateSecondOpinion(aiResponse: string, userQuestion?: string, apiKey?: string, provider?: string) {
   const questionContext = userQuestion ? `\n\nThe user's original question was: "${userQuestion}"` : '';
   
   const systemPrompt = `You are a critical thinking partner. Your job is to provide genuinely DIFFERENT perspectives on AI responses that challenge groupthink and confirmation bias.
@@ -93,37 +98,112 @@ async function generateSecondOpinion(aiResponse: string, userQuestion?: string) 
 
 AI Response: ${aiResponse.substring(0, 3000)}${userQuestion ? '\n\nUser Question: ' + userQuestion : ''}`;
 
-  try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY || '',
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 1000,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }]
-      })
-    });
+  // Use user-provided API key or fall back to env
+  const effectiveApiKey = apiKey || process.env.ANTHROPIC_API_KEY || '';
+  const effectiveProvider = provider || 'anthropic';
 
-    if (response.ok) {
-      const data = await response.json();
-      const content = data.content?.[0]?.text || '';
-      
+  console.log('=== GENERATING OPINION ===');
+  console.log('Effective provider:', effectiveProvider);
+  console.log('Has API key:', !!effectiveApiKey);
+
+  // Try Minimax first if that's the provider
+  if (effectiveProvider === 'minimax') {
+    console.log('Trying Minimax API...');
+    const minimaxKey = apiKey || process.env.MINIMAX_API_KEY || '';
+    if (minimaxKey) {
       try {
-        const parsed = JSON.parse(content);
-        return parsed;
-      } catch {
-        return parseStructuredResponse(content);
+        const mmResponse = await fetch('https://api.minimax.chat/v1/text/chatcompletion_pro', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + minimaxKey
+          },
+          body: JSON.stringify({
+            model: 'abab6.5s-chat',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ]
+          })
+        });
+
+        console.log('Minimax response status:', mmResponse.status);
+        
+        if (mmResponse.ok) {
+          const data = await mmResponse.json();
+          console.log('Minimax response received');
+          const content = data.choices?.[0]?.message?.content || '';
+          
+          if (content) {
+            try {
+              const parsed = JSON.parse(content);
+              console.log('Successfully parsed Minimax response');
+              return parsed;
+            } catch {
+              console.log('Failed to parse Minimax JSON, trying to extract...');
+              return parseStructuredResponse(content);
+            }
+          }
+        } else {
+          const errorText = await mmResponse.text();
+          console.error('Minimax API error:', mmResponse.status, errorText);
+        }
+      } catch (error) {
+        console.error('Minimax API exception:', error);
       }
+    } else {
+      console.log('No Minimax API key available');
     }
-  } catch (error) {
-    console.error('AI API error:', error);
   }
 
+  // Try Anthropic as fallback
+  console.log('Trying Anthropic API...');
+  const anthropicKey = apiKey || process.env.ANTHROPIC_API_KEY || '';
+  
+  if (anthropicKey) {
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': anthropicKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-3-haiku-20240307',
+          max_tokens: 1000,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }]
+        })
+      });
+
+      console.log('Anthropic response status:', response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Anthropic response received');
+        const content = data.content?.[0]?.text || '';
+        
+        try {
+          const parsed = JSON.parse(content);
+          console.log('Successfully parsed Anthropic response');
+          return parsed;
+        } catch {
+          console.log('Failed to parse Anthropic JSON, trying to extract...');
+          return parseStructuredResponse(content);
+        }
+      } else {
+        const errorText = await response.text();
+        console.error('Anthropic API error:', response.status, errorText);
+      }
+    } catch (error) {
+      console.error('Anthropic API exception:', error);
+    }
+  } else {
+    console.log('No Anthropic API key available');
+  }
+
+  console.log('=== ALL APIs FAILED - USING FALLBACK ===');
   return generateFallbackOpinion(aiResponse, userQuestion);
 }
 

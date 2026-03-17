@@ -33,7 +33,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const apiKeys = {
       anthropic: document.getElementById('api-anthropic')?.value || '',
       openai: document.getElementById('api-openai')?.value || '',
-      google: document.getElementById('api-google')?.value || ''
+      google: document.getElementById('api-google')?.value || '',
+      minimax: document.getElementById('api-minimax')?.value || ''
     };
     chrome.storage.local.set({ apiKeys: apiKeys }, () => {
       alert('API keys saved!');
@@ -53,6 +54,23 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.textContent = 'Loading...';
     btn.disabled = true;
     
+    // Check for API keys first
+    chrome.storage.local.get(['apiKeys'], (result) => {
+      const apiKeys = result.apiKeys || {};
+      const hasApiKey = apiKeys.anthropic || apiKeys.minimax;
+      
+      if (!hasApiKey) {
+        alert('No API key found. Please add your API key in the Settings tab.\n\nGet keys from:\n- Anthropic: https://console.anthropic.com/\n- Minimax: https://platform.minimaxi.com/');
+        btn.textContent = 'Get Third Opinion';
+        btn.disabled = false;
+        return;
+      }
+      
+      makeApiCallWithKeys(apiKeys, btn);
+    });
+  });
+  
+  function makeApiCallWithKeys(apiKeys, btn) {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (!tabs[0]) {
         alert('No active tab found');
@@ -98,12 +116,18 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('AI response length:', aiResponse.length);
         console.log('User question:', userQuestion ? userQuestion.substring(0, 100) : 'EMPTY');
         
+        // Prioritize minimax key, then anthropic
+        const apiKey = apiKeys.minimax || apiKeys.anthropic;
+        const provider = apiKeys.minimax ? 'minimax' : 'anthropic';
+        
         const requestData = {
           aiResponse: aiResponse.substring(0, 8000),
           userQuestion: userQuestion.substring(0, 1000),
           platform: urlLower.includes('claude') ? 'claude' : urlLower.includes('chat') ? 'chatgpt' : urlLower.includes('gemini') ? 'gemini' : urlLower.includes('perplexity') ? 'perplexity' : urlLower.includes('minimax') ? 'minimax' : 'other',
           url: url,
-          chatName: aiResponse.substring(0, 40) + '...'
+          chatName: aiResponse.substring(0, 40) + '...',
+          apiKey: apiKey,
+          provider: provider
         };
         
         console.log('Sending to API:', JSON.stringify(requestData).substring(0, 500));
@@ -113,8 +137,8 @@ document.addEventListener('DOMContentLoaded', () => {
         makeApiCall(requestData, btn);
       });
     });
-  });
-  
+  }
+
   // Credit check
   chrome.storage.local.get(['creditsUsed', 'creditsResetDate', 'tier'], (result) => {
     const today = new Date().toDateString();
@@ -224,6 +248,7 @@ function loadSettings() {
       if (document.getElementById('api-anthropic')) document.getElementById('api-anthropic').value = result.apiKeys.anthropic || '';
       if (document.getElementById('api-openai')) document.getElementById('api-openai').value = result.apiKeys.openai || '';
       if (document.getElementById('api-google')) document.getElementById('api-google').value = result.apiKeys.google || '';
+      if (document.getElementById('api-minimax')) document.getElementById('api-minimax').value = result.apiKeys.minimax || '';
     }
     if (document.getElementById('pref-auto-prompt')) document.getElementById('pref-auto-prompt').checked = result.prefAutoPrompt !== false;
     if (document.getElementById('pref-tts')) document.getElementById('pref-tts').checked = result.prefTTS !== false;
