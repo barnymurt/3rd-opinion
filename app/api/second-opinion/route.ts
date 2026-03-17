@@ -28,7 +28,10 @@ export async function POST(request: NextRequest) {
   }
   
   try {
+    console.log('🔔 API ENDPOINT HIT');
     const body = await request.json();
+    console.log('📝 Request body received');
+    
     const { aiResponse, userQuestion, platform, url, chatName, apiKey, provider } = body;
 
     console.log('=== API REQUEST RECEIVED ===');
@@ -101,12 +104,14 @@ async function generateSecondOpinion(aiResponse: string, userQuestion?: string, 
 AI Response: ${aiResponse.substring(0, 3000)}${userQuestion ? '\n\nUser Question: ' + userQuestion : ''}`;
 
   // Use user-provided API key or fall back to env
-  const effectiveApiKey = apiKey || process.env.ANTHROPIC_API_KEY || '';
-  const effectiveProvider = provider || 'anthropic';
+  const effectiveApiKey = apiKey || process.env.ANTHROPIC_API_KEY || process.env.MINIMAX_API_KEY || '';
+  const effectiveProvider = provider || 'minimax';
 
   console.log('=== GENERATING OPINION ===');
   console.log('Effective provider:', effectiveProvider);
-  console.log('Has API key:', !!effectiveApiKey);
+  console.log('Has effective API key:', !!effectiveApiKey);
+  console.log('ENV MINIMAX key exists:', !!process.env.MINIMAX_API_KEY);
+  console.log('ENV ANTHROPIC key exists:', !!process.env.ANTHROPIC_API_KEY);
 
   // Try Minimax first if that's the provider
   if (effectiveProvider === 'minimax') {
