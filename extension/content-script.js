@@ -26,7 +26,7 @@
   // Detect current platform
   function detectPlatform() {
     const hostname = window.location.hostname;
-    if (hostname.includes('chat.openai.com')) return 'chatgpt';
+    if (hostname.includes('chatgpt.com') || hostname.includes('chat.openai.com')) return 'chatgpt';
     if (hostname.includes('claude.ai')) return 'claude';
     if (hostname.includes('gemini.google.com')) return 'gemini';
     if (hostname.includes('perplexity.ai')) return 'perplexity';
@@ -38,7 +38,7 @@
     const platform = detectPlatform();
     const hostname = window.location.hostname;
     
-    if (hostname.includes('chat.openai.com')) return '[data-message-author-role="assistant"]';
+    if (hostname.includes('chatgpt.com') || hostname.includes('chat.openai.com')) return '[data-message-author-role="assistant"]';
     if (hostname.includes('claude.ai')) return '[class*="message"], [class*="ConversationItem"], [data-testid*="message"]';
     if (hostname.includes('gemini.google.com')) return '[class*="response"]';
     if (hostname.includes('perplexity.ai')) return '[class*="answer-item"]';
@@ -60,10 +60,11 @@
     const selectors = {
       'chatgpt': [
         '[data-message-author-role="user"]',
-        '[data-message-author-role="user"] [class*="message"]',
-        '[class*="user-message"]',
-        '.chat-input-message',
-        'textarea[placeholder*="Message"]'
+        '[data-message-author-role="user"] div[class*="message"]',
+        '[data-message-author-role="user"] .markdown',
+        '[data-message-author-role="user"] [class*="content"]',
+        '[class*="user"] [class*="message"]',
+        '#prompt-textarea'
       ],
       'claude': [
         '[class*="user"]',
@@ -90,9 +91,10 @@
         const elements = document.querySelectorAll(selector);
         console.log('Found elements:', elements.length);
         for (let i = elements.length - 1; i >= 0; i--) {
-          const text = (elements[i].innerText || elements[i].textContent || '').trim();
-          console.log('Element text length:', text.length, 'preview:', text.substring(0, 50));
-          if (text.length > 10) {
+          const el = elements[i];
+          const text = (el.innerText || el.textContent || '').trim();
+          console.log('Element text length:', text.length, 'preview:', text.substring(0, 80));
+          if (text.length > 10 && !text.includes('Message ChatGPT')) {
             lastUserMessage = text;
             break;
           }
@@ -100,20 +102,6 @@
         if (lastUserMessage) break;
       } catch (e) {
         console.log('Selector error:', selector, e.message);
-      }
-    }
-    
-    // Fallback: look for any input or textarea with content
-    if (!lastUserMessage) {
-      console.log('Trying fallback for user question...');
-      const inputs = document.querySelectorAll('input[type="text"], textarea');
-      for (const input of inputs) {
-        const val = (input.value || '').trim();
-        if (val.length > 10) {
-          lastUserMessage = val;
-          console.log('Found in input:', val.substring(0, 50));
-          break;
-        }
       }
     }
     
