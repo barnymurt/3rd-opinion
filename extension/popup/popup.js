@@ -198,6 +198,28 @@ function makeApiCall(requestData, btn) {
       
       showResultInPopup(data.opinion, data.opinion?.summary?.[0] || 'Third Opinion');
       
+      // Save to local history storage
+      const newOpinion = {
+        id: data.opinionId,
+        aiResponse: requestData.aiResponse,
+        userQuestion: requestData.userQuestion,
+        chatName: requestData.chatName,
+        platform: requestData.platform,
+        opinion: data.opinion,
+        createdAt: new Date().toISOString()
+      };
+      
+      chrome.storage.local.get(['opinionHistory'], (result) => {
+        const history = result.opinionHistory || [];
+        history.unshift(newOpinion);
+        // Keep last 50 opinions
+        if (history.length > 50) history.pop();
+        chrome.storage.local.set({ opinionHistory: history });
+        
+        // Reload history display
+        displayLocalHistory();
+      });
+      
       chrome.storage.local.get(['creditsUsed', 'stats'], (result) => {
         const stats = result.stats || { total: 0, platformCounts: {} };
         stats.total = (stats.total || 0) + 1;
@@ -300,32 +322,73 @@ function loadDashboard() {
 }
 
 function loadHistory() {
-  fetch(API_BASE + '/api/second-opinion')
-    .then(res => res.json())
-    .then(data => {
-      const historyList = document.getElementById('history-list');
-      if (!historyList || !data.opinions || data.opinions.length === 0) return;
-      
-      historyList.innerHTML = data.opinions.slice(0, 10).map((opinion, index) => `
-        <div style="border-bottom: 1px solid #e2e8f0;">
-          <div style="padding: 14px 18px; cursor: pointer;" onclick="toggleHistoryItem(${index})">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <div style="flex:1;">
-                <p style="font-size: 14px; font-weight: 600; color: #0f172a; margin: 0;">${opinion.chatName || 'Untitled Chat'}</p>
-                <p style="font-size: 12px; color: #64748b; margin: 4px 0 0;">${new Date(opinion.createdAt).toLocaleDateString()} · ${opinion.platform}</p>
-              </div>
-              <span id="history-arrow-${index}" style="color:#94a3b8; font-size:18px;">+</span>
+  // Try local storage first
+  displayLocalHistory();
+}
+
+function displayLocalHistory() {
+  chrome.storage.local.get(['opinionHistory'], (result) => {
+    const history = result.opinionHistory || [];
+    const historyList = document.getElementById('history-list');
+    
+    if (!historyList) return;
+    
+    if (history.length === 0) {
+      historyList.innerHTML = '<p style="padding: 20px; text-align: center; color: #64748b;">No history yet. Get your first Third Opinion!</p>';
+      return;
+    }
+    
+    historyList.innerHTML = history.slice(0, 10).map((opinion, index) => `
+      <div style="border-bottom: 1px solid #e2e8f0;">
+        <div style="padding: 14px 18px; cursor: pointer;" onclick="toggleHistoryItem(${index})">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="flex:1;">
+              <p style="font-size: 14px; font-weight: 600; color: #0f172a; margin: 0;">${opinion.chatName || 'Untitled Chat'}</p>
+              <p style="font-size: 12px; color: #64748b; margin: 4px 0 0;">${new Date(opinion.createdAt).toLocaleDateString()} · ${opinion.platform}</p>
             </div>
-          </div>
-          <div id="history-detail-${index}" style="display:none; padding: 0 18px 14px; background:#f8fafc;">
-            <p style="font-size:13px; color:#64748b; margin-bottom:8px;"><strong>AI Response:</strong> ${(opinion.aiResponse || '').substring(0, 150)}...</p>
-            <button onclick="viewOpinion('${opinion.id}')" style="padding:8px 16px; background:#6366f1; color:white; border:none; border-radius:6px; font-size:12px; cursor:pointer;">View Full Opinion</button>
+            <span id="history-arrow-${index}" style="color:#94a3b8; font-size:18px;">+</span>
           </div>
         </div>
-      `).join('');
-    })
-    .catch(err => console.error('Failed to load history:', err));
+        <div id="history-detail-${index}" style="display:none; padding: 0 18px 14px; background:#f8fafc;">
+          <p style="font-size:13px; color:#64748b; margin-bottom:8px;"><strong>AI Response:</strong> ${(opinion.aiResponse || '').substring(0, 150)}...</p>
+          <p style="font-size:13px; color:#64748b; margin-bottom:8px;"><strong>User Question:</strong> ${(opinion.userQuestion || '').substring(0, 100)}...</p>
+          <button onclick="viewLocalOpinion(${index})" style="padding:8px 16px; background:#6366f1; color:white; border:none; border-radius:6px; font-size:12px; cursor:pointer;">View Full Opinion</button>
+        </div>
+      </div>
+    `).join('');
+  });
 }
+
+window.viewLocalOpinion = function(index) {
+  chrome.storage.local.get(['opinionHistory'], (result) => {
+    const opinion = result.opinionHistory?.[index];
+    if (!opinion) return;
+    
+    const summaryHtml = (opinion.opinion?.summary || []).map(p => `<li style="padding: 8px 12px; background: #f8fafc; border-radius: 6px; margin-bottom: 6px; font-size: 13px; color: #475569;">• ${p}</li>`).join('');
+    
+    const panel = document.createElement('div');
+    panel.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:999999;padding:20px;';
+    panel.innerHTML = `
+      <div style="background:white;border-radius:14px;max-width:480px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:16px;font-weight:600;">${opinion.chatName || 'Third Opinion'}</span>
+          <button onclick="this.closest('[style*=\\"position:fixed\\"]').remove()" style="background:none;border:none;color:white;font-size:24px;cursor:pointer;padding:0;line-height:1;opacity:0.8;">&times;</button>
+        </div>
+        <div style="padding:20px;">
+          <h4 style="font-size:14px;font-weight:600;color:#0f172a;margin:0 0 12px;">Quick Summary</h4>
+          <ul style="list-style:none;padding:0;margin:0 0 20px;">${summaryHtml}</ul>
+          <h4 style="font-size:14px;font-weight:600;color:#0f172a;margin:0 0 8px;">Alternative Perspectives</h4>
+          <p style="font-size:13px;color:#64748b;line-height:1.6;margin:0 0 16px;">${opinion.opinion?.alternativePerspectives || ''}</p>
+          <h4 style="font-size:14px;font-weight:600;color:#0f172a;margin:0 0 8px;">Assumptions</h4>
+          <p style="font-size:13px;color:#64748b;line-height:1.6;margin:0 0 16px;">${opinion.opinion?.assumptions || ''}</p>
+          <h4 style="font-size:14px;font-weight:600;color:#0f172a;margin:0 0 8px;">Considerations</h4>
+          <p style="font-size:13px;color:#64748b;line-height:1.6;margin:0;">${opinion.opinion?.considerations || ''}</p>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(panel);
+  });
+};
 
 window.toggleHistoryItem = function(index) {
   const detail = document.getElementById('history-detail-' + index);
