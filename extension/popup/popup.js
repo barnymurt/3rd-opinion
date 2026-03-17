@@ -57,6 +57,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Check for API keys first
     chrome.storage.local.get(['apiKeys'], (result) => {
       const apiKeys = result.apiKeys || {};
+      console.log('API keys from storage:', apiKeys);
+      console.log('Has anthropic:', !!apiKeys.anthropic);
+      console.log('Has minimax:', !!apiKeys.minimax);
       const hasApiKey = apiKeys.anthropic || apiKeys.minimax;
       
       if (!hasApiKey) {
