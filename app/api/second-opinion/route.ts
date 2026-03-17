@@ -31,10 +31,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { aiResponse, userQuestion, platform, url, chatName, apiKey, provider } = body;
 
-    console.log('=== API REQUEST ===');
-    console.log('Provider:', provider);
-    console.log('Has API key:', !!apiKey);
+    console.log('=== API REQUEST RECEIVED ===');
+    console.log('Full body keys:', Object.keys(body));
+    console.log('Provider from client:', provider);
+    console.log('API key from client:', apiKey ? 'YES (' + apiKey.substring(0, 10) + '...)' : 'NO');
     console.log('User question:', userQuestion ? userQuestion.substring(0, 50) + '...' : 'none');
+    console.log('AI response length:', aiResponse?.length || 0);
 
     if (!aiResponse) {
       return NextResponse.json(
