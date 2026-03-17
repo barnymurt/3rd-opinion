@@ -3,6 +3,7 @@
   "name": "Third Opinion",
   "version": "1.0.0",
   "description": "Get alternative perspectives on AI chat outputs - challenge confirmation bias",
+  "content_security_policy": "script-src 'self' 'unsafe-inline'; object-src 'self';",
   "permissions": [
     "activeTab",
     "storage",
