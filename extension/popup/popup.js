@@ -393,7 +393,10 @@ window.viewLocalOpinion = function(index) {
 window.toggleHistoryItem = function(index) {
   const detail = document.getElementById('history-detail-' + index);
   const arrow = document.getElementById('history-arrow-' + index);
-  if (detail.style.display === 'none') {
+  if (!detail) return;
+  
+  const currentDisplay = detail.style.display;
+  if (currentDisplay === '' || currentDisplay === 'none') {
     detail.style.display = 'block';
     arrow.textContent = '-';
   } else {
