@@ -188,9 +188,14 @@ function makeApiCall(requestData, btn) {
   })
   .then(data => {
     clearTimeout(safetyTimeout);
-    console.log('API response:', data);
+    console.log('Full API response:', JSON.stringify(data, null, 2));
     
     if (data && data.success) {
+      console.log('=== OPINION CONTENT ===');
+      console.log('Summary:', data.opinion?.summary);
+      console.log('Alt Perspectives:', data.opinion?.alternativePerspectives?.substring(0, 100));
+      console.log('Is fallback?:', data.opinion?.alternativePerspectives?.includes('While the response provides useful information'));
+      
       showResultInPopup(data.opinion, data.opinion?.summary?.[0] || 'Third Opinion');
       
       chrome.storage.local.get(['creditsUsed', 'stats'], (result) => {

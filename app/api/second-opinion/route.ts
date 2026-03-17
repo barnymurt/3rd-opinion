@@ -246,7 +246,12 @@ function generateFallbackOpinion(aiResponse: string, userQuestion?: string) {
 export async function GET() {
   return NextResponse.json({
     opinions: opinionsDb.reverse().slice(0, 50),
-    total: opinionsDb.length
+    total: opinionsDb.length,
+    debug: {
+      hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
+      hasMinimaxKey: !!process.env.MINIMAX_API_KEY,
+      minimaxKeyPrefix: process.env.MINIMAX_API_KEY ? process.env.MINIMAX_API_KEY.substring(0, 10) : 'none'
+    }
   }, {
     headers: {
       'Access-Control-Allow-Origin': '*',
