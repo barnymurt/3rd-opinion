@@ -58,78 +58,94 @@
     const platform = detectPlatform();
     console.log('=== EXTRACTING USER QUESTION FOR:', platform, '===');
     
-    const selectors = {
-      'chatgpt': [
-        '[data-message-author-role="user"]',
-        '[data-message-author-role="user"] div[class*="message"]',
-        '[data-message-author-role="user"] .markdown',
-        '[data-message-author-role="user"] [class*="content"]',
-        '[class*="user"] [class*="message"]',
-        '#prompt-textarea'
-      ],
-      'claude': [
-        '[data-message-author-role="user"]',
-        '[class*="user-message"]',
-        '[class*="human-message"]',
-        '[class*="prompt"]',
-        '[data-testid*="user"]',
-        'textarea[placeholder*="message"]',
-        'textarea[placeholder*="Message"]'
-      ],
-      'gemini': [
-        '[data-message-author-role="user"]',
-        '[class*="user-input"]',
-        '[class*="query-input"]',
-        '[class*="input-field"]',
-        'textarea[placeholder*="Ask"]',
-        'textarea[placeholder*="message"]'
-      ],
-      'perplexity': [
-        '[data-message-author-role="user"]',
-        '[class*="user-query"]',
-        '[class*="user-message"]',
-        '[class*="search-input"]',
-        'textarea[placeholder*="Ask"]',
-        'textarea[placeholder*="question"]'
-      ],
-      'minimax': [
-        '[data-message-author-role="user"]',
-        '[class*="user-message"]',
-        '[class*="human-message"]',
-        '[class*="user-input"]',
-        'textarea[placeholder*="message"]',
-        'textarea[placeholder*="Message"]',
-        'textarea[placeholder*="Ask"]',
-        'input[placeholder*="message"]',
-        'input[placeholder*="Message"]'
-      ]
-    };
-    
-    const platformSelectors = selectors[platform] || [];
-    let lastUserMessage = '';
-    
-    for (const selector of platformSelectors) {
-      try {
-        console.log('Trying user selector:', selector);
-        const elements = document.querySelectorAll(selector);
-        console.log('Found elements:', elements.length);
-        for (let i = elements.length - 1; i >= 0; i--) {
-          const el = elements[i];
-          const text = (el.innerText || el.textContent || el.value || '').trim();
-          console.log('Element text length:', text.length, 'preview:', text.substring(0, 80));
-          if (text.length > 10 && !text.includes('Message') && !text.includes('Ask')) {
-            lastUserMessage = text;
-            break;
+    // For ChatGPT - try multiple approaches
+    if (platform === 'chatgpt' || !platform) {
+      console.log('Using ChatGPT extraction logic...');
+      
+      // Approach 1: Look for elements with data-message-author-role="user"
+      const userMessages = document.querySelectorAll('[data-message-author-role="user"]');
+      console.log('Found [data-message-author-role="user"]:', userMessages.length);
+      
+      // Get the last (most recent) user message
+      if (userMessages.length > 0) {
+        const lastUserMsg = userMessages[userMessages.length - 1];
+        const text = (lastUserMsg.innerText || lastUserMsg.textContent || '').trim();
+        console.log('Last user message text length:', text.length);
+        if (text.length > 5) {
+          console.log('SUCCESS - Found user question via role selector:', text.substring(0, 100));
+          return text;
+        }
+      }
+      
+      // Approach 2: Look for any text that appears BEFORE the assistant message
+      // by finding the conversation structure
+      console.log('Trying conversation structure approach...');
+      const messages = document.querySelectorAll('[data-message-author-role]');
+      console.log('All role-marked messages:', messages.length);
+      
+      for (let i = messages.length - 2; i >= 0; i--) {
+        if (messages[i].getAttribute('data-message-author-role') === 'user') {
+          const text = (messages[i].innerText || messages[i].textContent || '').trim();
+          if (text.length > 5) {
+            console.log('SUCCESS - Found via conversation order:', text.substring(0, 100));
+            return text;
           }
         }
-        if (lastUserMessage) break;
-      } catch (e) {
-        console.log('Selector error:', selector, e.message);
+      }
+      
+      // Approach 3: Find all text that could be user input
+      console.log('Trying text content scan...');
+      const body = document.body;
+      const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, null, false);
+      let node;
+      const texts = [];
+      while (node = walker.nextNode()) {
+        const text = node.textContent.trim();
+        if (text.length > 20 && text.length < 3000) {
+          texts.push(text);
+        }
+      }
+      console.log('Found', texts.length, 'text nodes in acceptable range');
+      
+      // The user question should be near the beginning, before the long AI response
+      if (texts.length > 0) {
+        // Return the first substantial text that's not the AI response
+        const aiResponse = extractLatestAIResponse();
+        for (const text of texts) {
+          if (!aiResponse.includes(text) && text.length > 20) {
+            console.log('SUCCESS - Found via text scan:', text.substring(0, 100));
+            return text;
+          }
+        }
       }
     }
     
-    console.log('Final user question:', lastUserMessage ? lastUserMessage.substring(0, 100) : 'EMPTY');
-    return lastUserMessage;
+    // Generic extraction for other platforms
+    const selectors = {
+      'claude': ['[data-message-author-role="user"]', '[class*="user-message"]', 'textarea'],
+      'gemini': ['[data-message-author-role="user"]', '[class*="user-input"]', 'textarea'],
+      'perplexity': ['[data-message-author-role="user"]', '[class*="user-query"]', 'textarea'],
+      'minimax': ['[data-message-author-role="user"]', '[class*="user-message"]', 'textarea']
+    };
+    
+    const platformSelectors = selectors[platform] || [];
+    
+    for (const selector of platformSelectors) {
+      try {
+        const elements = document.querySelectorAll(selector);
+        for (let i = elements.length - 1; i >= 0; i--) {
+          const el = elements[i];
+          const text = (el.innerText || el.textContent || el.value || '').trim();
+          if (text.length > 10) {
+            console.log('Found via', selector, ':', text.substring(0, 80));
+            return text;
+          }
+        }
+      } catch (e) {}
+    }
+    
+    console.log('FAILED - Could not find user question');
+    return '';
   }
   function extractLatestAIResponse() {
     const platform = detectPlatform();
