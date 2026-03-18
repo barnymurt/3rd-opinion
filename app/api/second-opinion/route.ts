@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import * as patternManager from '../../../lib/3rdOpinion-skill/learning/pattern-manager';
+import * as promptEnhancer from '../../../lib/3rdOpinion-skill/learning/prompt-enhancer';
 
 const opinionsDb: Array<{
   id: string;
@@ -10,6 +12,8 @@ const opinionsDb: Array<{
     alternativePerspectives: string;
     assumptions: string;
     considerations: string;
+    domainsApplied?: string[];
+    suggestedQuestions?: string[];
   };
   platform: string;
   createdAt: string;
@@ -48,7 +52,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const opinion = await generateSecondOpinion(aiResponse, userQuestion, apiKey, provider);
+    const opinion = await generateThirdOpinion(aiResponse, userQuestion, apiKey, provider);
 
     const savedOpinion = {
       id: Date.now().toString(),
@@ -62,6 +66,13 @@ export async function POST(request: NextRequest) {
     };
     opinionsDb.push(savedOpinion);
 
+    patternManager.learnFromInteraction(
+      aiResponse,
+      userQuestion,
+      opinion.domainsApplied || [],
+      promptEnhancer.extractPromptEnhancement(aiResponse, opinion.domainsApplied || [])
+    );
+
     return NextResponse.json({
       success: true,
       opinion,
@@ -72,82 +83,157 @@ export async function POST(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('Second Opinion error:', error);
+    console.error('Third Opinion error:', error);
     return NextResponse.json(
-      { error: 'Failed to generate second opinion', details: String(error) },
+      { error: 'Failed to generate third opinion', details: String(error) },
       { status: 500 }
     );
   }
 }
 
-async function generateSecondOpinion(aiResponse: string, userQuestion?: string, apiKey?: string, provider?: string) {
-  const questionContext = userQuestion ? `\n\nThe user's original question was: "${userQuestion}"` : '';
+async function generateThirdOpinion(aiResponse: string, userQuestion?: string, apiKey?: string, provider?: string) {
+  const detectedDomains = patternManager.detectDomains(aiResponse, userQuestion);
   
-  const systemPrompt = `You are a Devil's Advocate - a skilled critical thinker who systematically challenges AI responses to help users think more deeply and avoid confirmation bias.
+  console.log('=== DETECTED DOMAINS ===');
+  console.log('Domains:', detectedDomains);
 
-CORE METHODOLOGY (adapted from Devil's Advocate skill):
-1. Extract the Claim Set - Identify the core thesis and decompose into assumptions about: the problem, the customer, the solution, the market, the business model, and timing
-2. Challenge Assumptions - For high-risk assumptions, ask "Why would this NOT be true?" and provide evidence
-3. Test Value Proposition - Apply the Switchover Test, 10x Better Test, Would You Pay Test
-4. Model Customer Objections - Predict specific objections in the customer's voice
-5. Identify Blind Spots - Surface things the user hasn't considered (do-nothing competitor, adjacent player threats, edge cases)
-6. Synthesize Verdict - Balanced assessment with strengths, risks, and recommended actions
+  const prompt = promptEnhancer.buildPrompt(aiResponse, userQuestion || '', detectedDomains);
 
-CRITICAL REQUIREMENTS:
-- Focus specifically on the CONTENT of the AI response
-- Identify specific claims, recommendations, or conclusions in the AI response
-- Provide alternative viewpoints that are RELEVANT to those specific points
-- Don't give generic advice - make it specific to what was actually said
-- Be constructive, not hostile - every challenge comes with a path forward
-- Tone: direct, constructive, specific - like a tough-but-fair investor meeting
+  const anthropicKey = (apiKey && apiKey.length > 10) ? apiKey : (process.env.ANTHROPIC_API_KEY || '');
+  const minimaxKey = (apiKey && apiKey.length > 10) ? apiKey : (process.env.MINIMAX_API_KEY || '');
+  const useAnthropic = anthropicKey && anthropicKey.length > 10;
 
-Output ONLY valid JSON with this exact structure:
-{
-  "summary": ["A specific alternative view/challenge on point 1", "A different angle on point 2", "A counter-perspective on point 3", "A relevant consideration the AI missed", "A question that challenges the AI's conclusion"],
-  "alternativePerspectives": "2-3 paragraphs specifically addressing what the AI claimed, using Devil's Advocate methodology",
-  "assumptions": "2-3 paragraphs on specific assumptions the AI made, ranked by risk",
-  "considerations": "2-3 paragraphs on additional factors specific to this situation, including blind spots and potential objections"
-}`;
+  console.log('=== GENERATING THIRD OPINION ===');
+  console.log('Using Anthropic:', !!useAnthropic);
+  console.log('Using Minimax:', !!minimaxKey);
 
-  const userPrompt = `Analyze this AI response using the Devil's Advocate methodology. 
+  if (useAnthropic) {
+    console.log('Trying Anthropic API...');
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': anthropicKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-3-haiku-20240307',
+          max_tokens: 1024,
+          messages: [{ role: 'user', content: prompt }]
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
 
-AI Response to analyze: ${aiResponse.substring(0, 3000)}${userQuestion ? '\n\nUser Question: ' + userQuestion : ''}
+      console.log('Anthropic response status:', response.status);
 
-Apply the Devil's Advocate framework:
-1. Extract what claims/assertions the AI is making
-2. Identify the underlying assumptions (about the problem, solution, customer, market)
-3. Challenge the 3-5 most critical assumptions with "Why would this NOT be true?"
-4. Predict what objections or pushback a skeptical customer would raise
-5. Identify blind spots - what is the AI response NOT considering?
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Anthropic response received');
+        const content = data.content?.[0]?.text || '';
+        
+        try {
+          const parsed = JSON.parse(content);
+          console.log('Successfully parsed Anthropic response');
+          return {
+            ...parsed,
+            domainsApplied: detectedDomains
+          };
+        } catch {
+          console.log('Failed to parse Anthropic JSON, trying to extract...');
+          return parseStructuredResponse(content, detectedDomains);
+        }
+      } else {
+        const errorText = await response.text();
+        console.error('Anthropic API error:', response.status, errorText);
+      }
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error('Anthropic API timed out');
+      } else {
+        console.error('Anthropic API exception:', error);
+      }
+    }
+  }
 
-Be specific to the actual content - not generic advice.`;
+  if (minimaxKey) {
+    console.log('Trying Minimax API...');
+    console.log('Minimax key prefix:', minimaxKey.substring(0, 15));
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-  // Use user-provided API key or fall back to env
-  // Priority: user-provided > ANTHROPIC_API_KEY > MINIMAX_API_KEY
-  const userProvidedKey = apiKey;
-  const anthropicEnvKey = process.env.ANTHROPIC_API_KEY;
-  const minimaxEnvKey = process.env.MINIMAX_API_KEY;
-  
-  // Determine which provider to use
-  const useAnthropic = userProvidedKey || anthropicEnvKey;
-  const effectiveProvider = provider || (useAnthropic ? 'anthropic' : 'minimax');
+      console.log('Making Minimax request to api.minimax.chat...');
+      
+      const mmResponse = await fetch('https://api.minimax.chat/v1/text/chatcompletion_pro', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + minimaxKey
+        },
+        body: JSON.stringify({
+          model: 'abab6.5s-chat',
+          messages: [
+            { role: 'user', content: prompt }
+          ]
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
 
-  console.log('=== GENERATING OPINION ===');
-  console.log('Effective provider:', effectiveProvider);
-  console.log('User provided key:', !!userProvidedKey);
-  console.log('Has Anthropic env key:', !!anthropicEnvKey);
-  console.log('Has Minimax env key:', !!minimaxEnvKey);
+      console.log('Minimax response status:', mmResponse.status);
+      
+      if (mmResponse.ok) {
+        const data = await mmResponse.json();
+        console.log('Minimax response received');
+        const content = data.choices?.[0]?.message?.content || '';
+        
+        if (content) {
+          try {
+            const parsed = JSON.parse(content);
+            console.log('Successfully parsed Minimax response');
+            return {
+              ...parsed,
+              domainsApplied: detectedDomains
+            };
+          } catch {
+            console.log('Failed to parse Minimax JSON, trying to extract...');
+            return parseStructuredResponse(content, detectedDomains);
+          }
+        }
+      } else {
+        const errorText = await mmResponse.text();
+        console.error('Minimax API error:', mmResponse.status, errorText);
+        if (mmResponse.status === 401 || mmResponse.status === 403) {
+          console.log('Invalid API key, using fallback');
+        }
+      }
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error('Minimax API timed out');
+      } else {
+        console.error('Minimax API exception:', error);
+      }
+    }
+  }
 
-  // Skip external APIs for now and use fallback directly
-  console.log('=== USING DEVIL\'S ADVOCATE FALLBACK (no valid API key) ===');
-  return generateFallbackOpinion(aiResponse, userQuestion);
+  console.log('=== USING 3RD OPINION FALLBACK ===');
+  return generateFallbackOpinion(aiResponse, userQuestion, detectedDomains);
 }
 
-function parseStructuredResponse(content: string) {
+function parseStructuredResponse(content: string, detectedDomains: string[]) {
   const jsonMatch = content.match(/\{[\s\S]*\}/);
   if (jsonMatch) {
     try {
-      return JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(jsonMatch[0]);
+      return {
+        ...parsed,
+        domainsApplied: detectedDomains
+      };
     } catch {
       // Continue to fallback
     }
@@ -156,7 +242,7 @@ function parseStructuredResponse(content: string) {
   return generateFallbackOpinion(content);
 }
 
-function generateFallbackOpinion(aiResponse: string, userQuestion?: string) {
+function generateFallbackOpinion(aiResponse: string, userQuestion?: string, detectedDomains: string[] = []) {
   const q = userQuestion ? ` about "${userQuestion}"` : '';
   const responsePreview = aiResponse.substring(0, 200);
   
@@ -168,9 +254,17 @@ function generateFallbackOpinion(aiResponse: string, userQuestion?: string) {
       "What potential drawbacks or risks did the AI not mention?",
       "What questions should you ask to validate this advice?"
     ],
-    alternativePerspectives: `The AI provided a response starting with "${responsePreview}...". From a Devil's Advocate perspective, consider: (1) The AI may be optimizing for a generic use case, not your specific needs. (2) Alternative solutions might exist that weren't mentioned. (3) The AI's training data may influence its recommendations in ways not visible to you. (4) Consider who might disagree with this approach and why. To validate, ask the AI to explain alternative approaches and their tradeoffs.${q}`,
-    assumptions: `Every AI response contains implicit assumptions: (1) Assumptions about your expertise level - the response may be too basic or too advanced. (2) Assumptions about your constraints - resources, timeline, or tools you have access to. (3) Assumptions about your goals - the AI may optimize for different outcomes than you want. (4) Assumptions about context - the AI doesn't know your specific situation. Question each recommendation by asking "What would need to be true for this to be the best approach?"`,
-    considerations: `Beyond the immediate response, consider: (1) What edge cases might break this solution? (2) What are the long-term maintenance implications? (3) What would a competitor or alternative vendor recommend differently? (4) What evidence would change your mind about this advice? (5) What follow-up questions would help you validate this guidance? The best way to use AI responses is as a starting point for deeper exploration, not as final authority.`
+    alternativePerspectives: `The AI provided a response starting with "${responsePreview}...". From a critical thinking perspective, consider: (1) The AI may be optimizing for a generic use case, not your specific needs. (2) Alternative solutions might exist that weren't mentioned. (3) The AI's training data may influence its recommendations in ways not visible to you. (4) Consider who might disagree with this approach and why.${q}`,
+    assumptions: `Every AI response contains implicit assumptions: (1) Assumptions about your expertise level - the response may be too basic or too advanced. (2) Assumptions about your constraints - resources, timeline, or tools you have access to. (3) Assumptions about your goals - the AI may optimize for different outcomes than you want. (4) Assumptions about context - the AI doesn't know your specific situation.`,
+    considerations: `Beyond the immediate response, consider: (1) What edge cases might break this solution? (2) What are the long-term implications? (3) What alternative perspectives exist? (4) What would change your mind about this advice? (5) What follow-up questions would help validate this guidance?`,
+    domainsApplied: detectedDomains.length > 0 ? detectedDomains : ['logical-reasoning', 'assumption-detection'],
+    suggestedQuestions: [
+      "What would need to be true for this advice to be wrong?",
+      "Who might disagree with this perspective?",
+      "What is the AI not telling me?",
+      "What are the tradeoffs?",
+      "What additional context would change this advice?"
+    ]
   };
 }
 
