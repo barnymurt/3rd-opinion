@@ -172,22 +172,24 @@ async function generateThirdOpinion(aiResponse: string, userQuestion?: string, a
   }
 
   if (minimaxKey) {
-    console.log('Trying Minimax API...');
+    console.log('Trying Minimax API (Anthropic-compatible)...');
     console.log('Minimax key prefix:', minimaxKey.substring(0, 15));
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-      console.log('Making Minimax request to api.minimax.io...');
+      console.log('Making Minimax request to api.minimax.io/anthropic...');
       
-      const mmResponse = await fetch('https://api.minimax.io/v1/text/chatcompletion_v2', {
+      const mmResponse = await fetch('https://api.minimax.io/anthropic/v1/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + minimaxKey
+          'x-api-key': minimaxKey,
+          'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-          model: 'M2-her',
+          model: 'MiniMax-M2.7',
+          max_tokens: 1024,
           messages: [
             { role: 'user', content: prompt }
           ]
@@ -201,7 +203,16 @@ async function generateThirdOpinion(aiResponse: string, userQuestion?: string, a
       if (mmResponse.ok) {
         const data = await mmResponse.json();
         console.log('Minimax response received');
-        const content = data.choices?.[0]?.message?.content || '';
+        
+        let content = '';
+        if (data.content && Array.isArray(data.content)) {
+          for (const block of data.content) {
+            if (block.type === 'text') {
+              content += block.text + ' ';
+            }
+          }
+        }
+        content = content.trim();
         
         if (content) {
           try {
