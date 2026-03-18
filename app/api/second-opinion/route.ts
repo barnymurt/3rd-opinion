@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Third Opinion error:', error);
     return NextResponse.json(
-      { error: 'Failed to generate third opinion', details: String(error) },
+      { error: 'Failed to generate third opinion', details: String(error), envKeyExists: !!process.env.MINIMAX_API_KEY, envKeyPrefix: process.env.MINIMAX_API_KEY ? process.env.MINIMAX_API_KEY.substring(0, 15) : 'none' },
       { status: 500 }
     );
   }
@@ -100,7 +100,18 @@ async function generateThirdOpinion(aiResponse: string, userQuestion?: string, a
   const prompt = promptEnhancer.buildPrompt(aiResponse, userQuestion || '', detectedDomains);
 
   const anthropicKey = (apiKey && apiKey.length > 10) ? apiKey : (process.env.ANTHROPIC_API_KEY || '');
-  const minimaxKey = (apiKey && apiKey.length > 10) ? apiKey : (process.env.MINIMAX_API_KEY || '');
+  let minimaxKey = (apiKey && apiKey.length > 10) ? apiKey : (process.env.MINIMAX_API_KEY || '');
+  
+  // Debug: return what we're seeing
+  const debug = {
+    hasApiKeyParam: !!apiKey,
+    apiKeyLength: apiKey ? apiKey.length : 0,
+    hasEnvKey: !!process.env.MINIMAX_API_KEY,
+    envKeyValue: process.env.MINIMAX_API_KEY ? process.env.MINIMAX_API_KEY.substring(0, 10) + '...' : 'EMPTY',
+    resolvedMinimaxKey: minimaxKey ? minimaxKey.substring(0, 10) + '...' : 'EMPTY'
+  };
+  console.log('=== DEBUG ===', JSON.stringify(debug));
+  
   const useAnthropic = anthropicKey && anthropicKey.length > 10;
 
   console.log('=== GENERATING THIRD OPINION ===');
@@ -167,16 +178,16 @@ async function generateThirdOpinion(aiResponse: string, userQuestion?: string, a
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-      console.log('Making Minimax request to api.minimax.chat...');
+      console.log('Making Minimax request to api.minimax.io...');
       
-      const mmResponse = await fetch('https://api.minimax.chat/v1/text/chatcompletion_pro', {
+      const mmResponse = await fetch('https://api.minimax.io/v1/text/chatcompletion_v2', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + minimaxKey
         },
         body: JSON.stringify({
-          model: 'abab6.5s-chat',
+          model: 'M2-her',
           messages: [
             { role: 'user', content: prompt }
           ]
