@@ -99,26 +99,50 @@ async function generateThirdOpinion(aiResponse: string, userQuestion?: string, a
 
   const prompt = promptEnhancer.buildPrompt(aiResponse, userQuestion || '', detectedDomains);
 
-  const anthropicKey = (apiKey && apiKey.length > 10) ? apiKey : (process.env.ANTHROPIC_API_KEY || '');
-  let minimaxKey = (apiKey && apiKey.length > 10) ? apiKey : (process.env.MINIMAX_API_KEY || '');
+  // Use user-provided key if available, otherwise fall back to env
+  // Provider determines which API to call
+  const userProvidedKey = apiKey || '';
+  const userProvider = provider || 'minimax'; // default to minimax since it works
   
-  // Debug: return what we're seeing
-  const debug = {
-    hasApiKeyParam: !!apiKey,
-    apiKeyLength: apiKey ? apiKey.length : 0,
-    hasEnvKey: !!process.env.MINIMAX_API_KEY,
-    envKeyValue: process.env.MINIMAX_API_KEY ? process.env.MINIMAX_API_KEY.substring(0, 10) + '...' : 'EMPTY',
-    resolvedMinimaxKey: minimaxKey ? minimaxKey.substring(0, 10) + '...' : 'EMPTY'
-  };
-  console.log('=== DEBUG ===', JSON.stringify(debug));
+  // Get keys from environment as fallback
+  const envAnthropicKey = process.env.ANTHROPIC_API_KEY || '';
+  const envMinimaxKey = process.env.MINIMAX_API_KEY || '';
   
-  const useAnthropic = anthropicKey && anthropicKey.length > 10;
+  // Determine which key to use based on provider
+  let effectiveKey = '';
+  let useAnthropic = false;
+  
+  if (userProvidedKey.length > 10) {
+    // User provided a key - use it based on provider
+    effectiveKey = userProvidedKey;
+    useAnthropic = userProvider === 'anthropic';
+  } else if (envAnthropicKey.length > 10) {
+    // No user key, try env anthropic
+    effectiveKey = envAnthropicKey;
+    useAnthropic = true;
+  } else if (envMinimaxKey.length > 10) {
+    // No anthropic, try env minimax
+    effectiveKey = envMinimaxKey;
+    useAnthropic = false;
+  } else {
+    // No valid keys - will use fallback
+    effectiveKey = '';
+    useAnthropic = false;
+  }
+  
+  console.log('=== API KEY DEBUG ===');
+  console.log('User provider:', userProvider);
+  console.log('User key length:', userProvidedKey.length);
+  console.log('Use Anthropic:', useAnthropic);
+  console.log('Effective key:', effectiveKey ? effectiveKey.substring(0, 10) + '...' : 'NONE');
+  
+  const useMinimax = !useAnthropic && effectiveKey.length > 10;
 
   console.log('=== GENERATING THIRD OPINION ===');
   console.log('Using Anthropic:', !!useAnthropic);
-  console.log('Using Minimax:', !!minimaxKey);
+  console.log('Using Minimax:', !!useMinimax);
 
-  if (useAnthropic) {
+  if (useAnthropic && effectiveKey) {
     console.log('Trying Anthropic API...');
     try {
       const controller = new AbortController();
@@ -128,7 +152,7 @@ async function generateThirdOpinion(aiResponse: string, userQuestion?: string, a
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': anthropicKey,
+          'x-api-key': effectiveKey,
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
@@ -171,9 +195,9 @@ async function generateThirdOpinion(aiResponse: string, userQuestion?: string, a
     }
   }
 
-  if (minimaxKey) {
+  if (useMinimax && effectiveKey) {
     console.log('Trying Minimax API (Anthropic-compatible)...');
-    console.log('Minimax key prefix:', minimaxKey.substring(0, 15));
+    console.log('Minimax key prefix:', effectiveKey.substring(0, 15));
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -184,7 +208,7 @@ async function generateThirdOpinion(aiResponse: string, userQuestion?: string, a
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': minimaxKey,
+          'x-api-key': effectiveKey,
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
