@@ -2,6 +2,60 @@
 
 const API_BASE = 'http://localhost:3000';
 
+// Modal system
+window.showModal = function(type, title, message, buttons = []) {
+  const modal = document.getElementById('custom-modal');
+  const iconContainer = document.getElementById('modal-icon');
+  const iconSvg = document.getElementById('modal-icon-svg');
+  const titleEl = document.getElementById('modal-title');
+  const messageEl = document.getElementById('modal-message');
+  const buttonsEl = document.getElementById('modal-buttons');
+  
+  // Configure icon based on type
+  const iconConfigs = {
+    success: { bg: '#d1fae5', color: '#059669', svg: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>' },
+    error: { bg: '#fee2e2', color: '#dc2626', svg: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>' },
+    warning: { bg: '#fef3c7', color: '#d97706', svg: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>' },
+    info: { bg: '#dbeafe', color: '#2563eb', svg: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>' }
+  };
+  
+  const config = iconConfigs[type] || iconConfigs.info;
+  iconContainer.style.background = config.bg;
+  iconSvg.innerHTML = config.svg;
+  iconSvg.style.color = config.color;
+  
+  titleEl.textContent = title;
+  messageEl.textContent = message;
+  
+  // Configure buttons
+  buttonsEl.innerHTML = '';
+  if (buttons.length === 0) {
+    const defaultBtn = document.createElement('button');
+    defaultBtn.textContent = 'OK';
+    defaultBtn.style.cssText = 'flex: 1; padding: 12px; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer;';
+    defaultBtn.onclick = () => modal.style.display = 'none';
+    buttonsEl.appendChild(defaultBtn);
+  } else {
+    buttons.forEach(btn => {
+      const button = document.createElement('button');
+      button.textContent = btn.text;
+      button.style.cssText = `flex: 1; padding: 12px; background: ${btn.primary ? 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' : '#f1f5f9'}; color: ${btn.primary ? 'white' : '#0f172a'}; border: ${btn.primary ? 'none' : '1px solid #e2e8f0'}; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer;`;
+      button.onclick = () => {
+        modal.style.display = 'none';
+        if (btn.onClick) btn.onClick();
+      };
+      buttonsEl.appendChild(button);
+    });
+  }
+  
+  modal.style.display = 'flex';
+};
+
+// Replace alert with modal
+window.alert = function(msg) {
+  showModal('info', 'Notice', msg);
+};
+
 // Global function for footer links
 window.switchTab = function(tabName) {
   document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
@@ -50,11 +104,43 @@ document.addEventListener('DOMContentLoaded', () => {
   loadDashboard();
 
   document.getElementById('upgradeBtn')?.addEventListener('click', () => {
+    // For testing - reset credits when upgrade is clicked
+    // In production this would open Stripe
+    if (window.creditsRemaining !== undefined && window.creditsRemaining <= 0) {
+      chrome.storage.local.set({ creditsUsed: 0 }, () => {
+        alert('Credits refreshed! You now have 20 free credits.');
+        window.location.reload();
+      });
+      return;
+    }
     alert('Stripe integration coming soon! Sign up for updates.');
+  });
+
+  // Debug: Press Ctrl+Shift+R to reset credits
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key === 'R') {
+      chrome.storage.local.set({ creditsUsed: 0 }, () => {
+        alert('Credits reset! Refresh the extension.');
+      });
+    }
   });
 
   // Get Third Opinion button
   document.getElementById('getOpinionBtn')?.addEventListener('click', () => {
+    // Check credits first
+    if (window.creditsRemaining !== undefined && window.creditsRemaining <= 0) {
+      // User has no credits - show upgrade option
+      document.getElementById('getOpinionBtn').textContent = 'Redirecting to upgrade...';
+      // Switch to pro tab for upgrade
+      document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+      document.getElementById('tab-pro').style.display = 'block';
+      document.getElementById('tab-pro').classList.add('active');
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      const tabBtn = document.querySelector('[data-tab="pro"]');
+      if (tabBtn) tabBtn.classList.add('active');
+      return;
+    }
+    
     const btn = document.getElementById('getOpinionBtn');
     btn.textContent = 'Loading...';
     btn.disabled = true;
@@ -68,9 +154,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const hasApiKey = apiKeys.anthropic || apiKeys.minimax;
       
       if (!hasApiKey) {
-        alert('No API key found. Please add your API key in the Settings tab.\n\nGet keys from:\n- Anthropic: https://console.anthropic.com/\n- Minimax: https://platform.minimaxi.com/');
-        btn.textContent = 'Get Third Opinion';
-        btn.disabled = false;
+        showModal('error', 'No API Key', 'Please add your API key in Settings to get started.', [
+          { text: 'Go to Settings', primary: true, onClick: () => window.switchTab('settings') },
+          { text: 'Cancel' }
+        ]);
         return;
       }
       
@@ -81,7 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function makeApiCallWithKeys(apiKeys, btn) {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (!tabs[0]) {
-        alert('No active tab found');
+        showModal('warning', 'No Active Tab', 'Please open an AI chat page first.');
         btn.textContent = 'Get Third Opinion';
         btn.disabled = false;
         return;
@@ -92,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const supported = urlLower.includes('claude.ai') || urlLower.includes('chatgpt.com') || urlLower.includes('chat.openai.com') || urlLower.includes('gemini.google.com') || urlLower.includes('perplexity.ai') || urlLower.includes('minimax.io');
       
       if (!supported) {
-        alert('Please open an AI chat page (Claude, ChatGPT, Gemini, Perplexity, or Minimax)');
+        showModal('warning', 'Unsupported Platform', 'Please open an AI chat page (Claude, ChatGPT, Gemini, Perplexity, or Minimax) to use this feature.');
         btn.textContent = 'Get Third Opinion';
         btn.disabled = false;
         return;
@@ -105,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Page response:', response);
         
         if (chrome.runtime.lastError || !response) {
-          alert('Could not read chat. Refresh the page and try again.');
+          showModal('error', 'Could Not Read Chat', 'Unable to read the AI response. Please refresh the page and try again.');
           btn.textContent = 'Get Third Opinion';
           btn.disabled = false;
           return;
@@ -115,7 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const userQuestion = response.userQuestion || '';
         
         if (!aiResponse || aiResponse.length < 50) {
-          alert('No AI response detected. Start a conversation first.');
+          showModal('warning', 'No AI Response', 'No response detected. Please start a conversation with the AI first.');
           btn.textContent = 'Get Third Opinion';
           btn.disabled = false;
           return;
@@ -166,6 +253,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const creditsValue = document.querySelector('.credits-value');
     if (creditsValue) creditsValue.innerHTML = `${creditsRemaining} <span>/ month</span>`;
     
+    // Update button state based on credits
+    const getOpinionBtn = document.getElementById('getOpinionBtn');
+    if (creditsRemaining === 0 && getOpinionBtn) {
+      getOpinionBtn.textContent = 'Upgrade for more 3rd Opinions';
+      getOpinionBtn.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+      getOpinionBtn.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.4)';
+    }
+    
+    // Store credits for button handler
+    window.creditsRemaining = creditsRemaining;
+    
     const progressFill = document.querySelector('.progress-fill');
     const progressText = document.querySelector('.progress-text');
     if (progressFill && progressText) {
@@ -177,7 +275,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function makeApiCall(requestData, btn) {
   const safetyTimeout = setTimeout(() => {
-    alert('Request timed out. Please try again.');
+    window.showModal('error', 'Request Timed Out', 'The request took too long. Please try again.', [
+  { text: 'Try Again', primary: true, onClick: () => document.getElementById('getOpinionBtn')?.click() },
+  { text: 'Cancel' }
+]);
     btn.textContent = 'Get Third Opinion';
     btn.disabled = false;
   }, 30000);
@@ -244,14 +345,14 @@ function makeApiCall(requestData, btn) {
         loadDashboard();
       });
     } else {
-      alert('Error: ' + (data?.error || 'Failed'));
+      showModal('error', 'Request Failed', data?.error || 'Something went wrong. Please try again.');
     }
     btn.textContent = 'Get Third Opinion';
     btn.disabled = false;
   })
   .catch(err => {
     clearTimeout(safetyTimeout);
-    alert('Error: ' + err.message);
+    showModal('error', 'Server Error', 'The server returned an error. Please try again later.');
     btn.textContent = 'Get Third Opinion';
     btn.disabled = false;
   });

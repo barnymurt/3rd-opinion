@@ -16,6 +16,43 @@
     }
   };
 
+  // In-page modal system
+  function showInPageModal(type, title, message) {
+    // Remove existing modal if any
+    const existing = document.getElementById('second-opinion-modal');
+    if (existing) existing.remove();
+    
+    const modal = document.createElement('div');
+    modal.id = 'second-opinion-modal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:999999;display:flex;align-items:center;justify-content:center;';
+    
+    const colors = {
+      warning: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
+      error: { bg: '#fee2e2', border: '#dc2626', text: '#991b1b' },
+      success: { bg: '#d1fae5', border: '#059669', text: '#065f46' },
+      info: { bg: '#dbeafe', border: '#2563eb', text: '#1e40af' }
+    };
+    const c = colors[type] || colors.info;
+    
+    modal.innerHTML = `
+      <div style="background:white;border-radius:16px;padding:24px;max-width:360px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);border-left:4px solid ${c.border};">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+          <div style="width:32px;height:32px;border-radius:50%;background:${c.bg};display:flex;align-items:center;justify-content:center;">
+            ${type === 'warning' ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>' : ''}
+            ${type === 'error' ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><path d="M6 18L18 6M6 6l12 12"/></svg>' : ''}
+            ${type === 'success' ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>' : ''}
+          </div>
+          <h3 style="font-size:18px;font-weight:600;margin:0;color:#0f172a;">${title}</h3>
+        </div>
+        <p style="font-size:14px;color:#64748b;margin:0 0 20px;line-height:1.5;">${message}</p>
+        <button id="modal-ok-btn" style="width:100%;padding:12px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">OK</button>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    document.getElementById('modal-ok-btn').onclick = () => modal.remove();
+  }
+
   // State
   let sessionStartTime = null;
   let messageCount = 0;
@@ -362,7 +399,7 @@
     const aiResponse = extractLatestAIResponse();
     const userQuestion = extractUserQuestion();
     if (!aiResponse || aiResponse.length < 50) {
-      alert('Please wait for a longer AI response before getting a second opinion.');
+      showInPageModal('warning', 'Response Too Short', 'Please wait for a longer AI response before getting a second opinion.');
       return;
     }
 
@@ -745,7 +782,7 @@
       console.log('Generated chat name:', chatName);
       console.log('Platform:', detectPlatform());
       if (!aiResponse || aiResponse.length < 50) {
-        alert('Could not detect AI response. Make sure Claude has sent a message at least 50 characters long.');
+        showInPageModal('warning', 'No AI Response', 'Could not detect AI response. Make sure Claude has sent a message at least 50 characters long.');
         return;
       }
       chrome.runtime.sendMessage({
@@ -761,9 +798,9 @@
         if (response && response.success) {
           showOpinionPanel(response.opinion);
         } else if (response?.error) {
-          alert('Error: ' + response.error);
+          showInPageModal('error', 'Error', response.error);
         } else {
-          alert('Failed to get second opinion. Please try again.');
+          showInPageModal('error', 'Request Failed', 'Failed to get second opinion. Please try again.');
         }
       });
     }
