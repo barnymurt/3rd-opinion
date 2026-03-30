@@ -212,8 +212,8 @@ async function generateThirdOpinion(aiResponse: string, userQuestion?: string, a
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-          model: 'MiniMax-M2.7',
-          max_tokens: 1024,
+          model: 'MiniMax-M2.7-highspeed',
+          max_tokens: 512,
           messages: [
             { role: 'user', content: prompt }
           ]
