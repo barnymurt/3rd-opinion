@@ -1,5 +1,5 @@
-// Second Opinion - Content Script
-// Detects AI chat sessions and triggers second opinion prompts
+// Third Opinion - Content Script
+// Detects AI chat sessions and triggers third opinion prompts
 
 (function() {
   'use strict';

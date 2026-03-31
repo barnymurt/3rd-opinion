@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Second Opinion - Balance AI\'s tendency to agree',
+  title: 'Third Opinion - Balance AI\'s tendency to agree',
   description: 'Get balanced perspectives on AI chat outputs',
 };
 

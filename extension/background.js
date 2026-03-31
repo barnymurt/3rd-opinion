@@ -1,4 +1,4 @@
-// Second Opinion - Background Service Worker
+// Third Opinion - Background Service Worker
 // Handles API calls and credit management
 
 // API Base URL - change this to your deployed API

@@ -55,7 +55,7 @@ export default function SecondOpinionDashboard() {
                 </svg>
               </div>
               <div>
-                <h1 style={{ fontSize: 18, fontWeight: 600, color: '#0f172a', margin: 0 }}>Second Opinion</h1>
+                <h1 style={{ fontSize: 18, fontWeight: 600, color: '#0f172a', margin: 0 }}>Third Opinion</h1>
                 <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>Balance AI&apos;s tendency to agree</p>
               </div>
             </div>
@@ -239,7 +239,7 @@ export default function SecondOpinionDashboard() {
           <div style={{ background: 'white', borderRadius: 16, maxWidth: 560, width: '100%', maxHeight: '80vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0' }}>
               <div className="d-flex align-items-center justify-content-between">
-                <h2 style={{ fontSize: 20, fontWeight: 600, color: '#0f172a', margin: 0 }}>Second Opinion</h2>
+                <h2 style={{ fontSize: 20, fontWeight: 600, color: '#0f172a', margin: 0 }}>Third Opinion</h2>
                 <button onClick={() => setSelectedOpinion(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                   <svg style={{ width: 24, height: 24, color: '#94a3b8' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
